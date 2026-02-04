@@ -22,6 +22,11 @@ export interface Profile {
   kyc_full_name: string | null;
   kyc_id_number: string | null;
   kyc_document_url: string | null;
+  kyc_age?: number;
+  kyc_dob?: string;
+  kyc_address?: string;
+  kyc_phone?: string;
+  kyc_profession?: string;
   created_at: string;
 }
 
@@ -57,6 +62,16 @@ export interface Withdrawal {
   method: string;
   wallet_number: string;
   status: WithdrawalStatus;
+  created_at: string;
+  user?: Profile;
+}
+
+export interface Activation {
+  id: number;
+  user_id: string;
+  method: string;
+  transaction_id: string;
+  status: SubmissionStatus;
   created_at: string;
   user?: Profile;
 }

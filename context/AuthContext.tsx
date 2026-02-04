@@ -2,11 +2,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { Profile } from '../types.ts';
+import { TRANSLATIONS } from '../constants.tsx';
+
+type Language = 'en' | 'bn';
 
 interface AuthContextType {
   user: any | null;
   profile: Profile | null;
   loading: boolean;
+  language: Language;
+  t: any;
+  setLanguage: (lang: Language) => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -17,6 +23,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [language, setLangState] = useState<Language>(
+    (localStorage.getItem('riseii_lang') as Language) || 'en'
+  );
+
+  const setLanguage = (lang: Language) => {
+    setLangState(lang);
+    localStorage.setItem('riseii_lang', lang);
+  };
+
+  const t = TRANSLATIONS[language];
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -38,7 +54,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Check initial session with error handling
     const initAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -55,7 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -69,12 +83,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const profileChannel = supabase
+      .channel(`profile-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          setProfile(payload.new as Profile);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileChannel);
+    };
+  }, [user]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, language, t, setLanguage, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

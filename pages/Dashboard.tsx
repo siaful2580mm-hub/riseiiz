@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { SystemSettings, Task } from '../types.ts';
 
 const Dashboard: React.FC = () => {
-  const { profile, user } = useAuth();
+  const { profile, user, t } = useAuth();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,8 +45,8 @@ const Dashboard: React.FC = () => {
                 <ShieldAlert className="text-white" size={24} />
               </div>
               <div>
-                <h2 className="text-white font-black text-lg">WELCOME BACK, ADMIN</h2>
-                <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest">You have full system control</p>
+                <h2 className="text-white font-black text-lg uppercase leading-tight">{t.welcome_admin}</h2>
+                <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest opacity-80">Full System Control Active</p>
               </div>
             </div>
             <ArrowRight className="text-white" />
@@ -78,7 +78,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-2 gap-4">
         <GlassCard className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-500/30">
           <div className="flex flex-col">
-            <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Balance</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider font-black">{t.total_balance}</span>
             <span className="text-3xl font-black text-emerald-400">৳{profile?.balance?.toFixed(2) || '0.00'}</span>
             <div className="flex items-center gap-1 mt-2 text-[10px] text-emerald-500/70 font-bold">
               <TrendingUp size={12} /> Live Updates
@@ -87,10 +87,10 @@ const Dashboard: React.FC = () => {
         </GlassCard>
         <GlassCard className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border-blue-500/30">
           <div className="flex flex-col">
-            <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Referrals</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider font-black">{t.referrals}</span>
             <span className="text-3xl font-black text-blue-400">{profile?.referral_count || 0}</span>
-            <Link to="/profile" className="text-[10px] text-blue-500/70 font-bold mt-2 flex items-center gap-1 hover:text-blue-400 transition-colors">
-              SHARE CODE <ArrowRight size={10} />
+            <Link to="/profile" className="text-[10px] text-blue-500/70 font-bold mt-2 flex items-center gap-1 hover:text-blue-400 transition-colors uppercase">
+              {t.share_code} <ArrowRight size={10} />
             </Link>
           </div>
         </GlassCard>
@@ -98,7 +98,7 @@ const Dashboard: React.FC = () => {
 
       <section className="space-y-4">
         <h3 className="text-lg font-bold flex items-center gap-2">
-          <CheckSquare className="text-emerald-400" size={20} /> Active Opportunities
+          <CheckSquare className="text-emerald-400" size={20} /> {t.active_opps}
         </h3>
         <div className="grid grid-cols-1 gap-4">
           {recentTasks.length > 0 ? (
@@ -121,7 +121,7 @@ const Dashboard: React.FC = () => {
             <div className="text-center py-8 text-slate-500 text-sm">No tasks available at the moment.</div>
           )}
           <Link to="/tasks" className="w-full py-3 rounded-xl bg-slate-900 border border-white/10 text-center text-sm font-bold text-slate-400 hover:text-white transition-colors">
-            View All Tasks
+            {t.view_all}
           </Link>
         </div>
       </section>

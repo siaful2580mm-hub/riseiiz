@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { isSupabaseConfigured } from './services/supabase.ts';
 import Layout from './components/Layout.tsx';
@@ -11,6 +11,7 @@ import Profile from './pages/Profile.tsx';
 import Admin from './pages/Admin.tsx';
 import Auth from './pages/Auth.tsx';
 import KYC from './pages/KYC.tsx';
+import Activation from './pages/Activation.tsx';
 import GlassCard from './components/GlassCard.tsx';
 import { Loader2, Settings, AlertTriangle, ExternalLink } from 'lucide-react';
 
@@ -67,6 +68,7 @@ const AppContent: React.FC = () => {
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/kyc" element={<KYC />} />
+          <Route path="/activation" element={<Activation />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

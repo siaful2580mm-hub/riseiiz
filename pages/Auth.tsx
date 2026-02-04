@@ -1,16 +1,27 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle, Gift } from 'lucide-react';
 
 const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [referralId, setReferralId] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Extract referral code from URL search parameters if present
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      setReferralId(ref.toUpperCase());
+      setIsSignUp(true);
+    }
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +33,10 @@ const Auth: React.FC = () => {
           email, 
           password,
           options: {
-            data: { full_name: fullName }
+            data: { 
+              full_name: fullName,
+              referral_id: referralId.trim().toUpperCase()
+            }
           }
         });
         if (error) throw error;
@@ -65,7 +79,7 @@ const Auth: React.FC = () => {
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">Full Name</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Full Name</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                 <input 
@@ -81,7 +95,7 @@ const Auth: React.FC = () => {
           )}
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase">Email Address</label>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input 
@@ -96,7 +110,7 @@ const Auth: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase">Password</label>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input 
@@ -110,13 +124,29 @@ const Auth: React.FC = () => {
             </div>
           </div>
 
+          {isSignUp && (
+             <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Referral Code (Optional)</label>
+              <div className="relative">
+                <Gift className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500/50" size={18} />
+                <input 
+                  type="text" 
+                  value={referralId}
+                  onChange={(e) => setReferralId(e.target.value)}
+                  className="w-full bg-slate-900 border border-emerald-500/20 rounded-xl py-3 pl-10 pr-4 text-sm focus:border-emerald-500 outline-none transition-all font-mono uppercase"
+                  placeholder="CODE777"
+                />
+              </div>
+            </div>
+          )}
+
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full py-4 bg-gradient-primary rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all"
+            className="w-full py-4 bg-gradient-primary rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all text-slate-950 uppercase"
           >
             {loading ? <Loader2 className="animate-spin" size={20} /> : <ArrowRight size={20} />}
-            {isSignUp ? 'CREATE ACCOUNT' : 'SIGN IN'}
+            {isSignUp ? 'Create Account' : 'Sign In'}
           </button>
         </form>
 
@@ -126,7 +156,7 @@ const Auth: React.FC = () => {
               setIsSignUp(!isSignUp);
               setErrorMsg(null);
             }}
-            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-widest"
           >
             {isSignUp ? 'ALREADY HAVE AN ACCOUNT? SIGN IN' : "DON'T HAVE AN ACCOUNT? SIGN UP"}
           </button>

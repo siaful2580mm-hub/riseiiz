@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   kyc_full_name TEXT,
   kyc_id_number TEXT,
   kyc_document_url TEXT,
+  kyc_age INTEGER,
+  kyc_dob DATE,
+  kyc_address TEXT,
+  kyc_phone TEXT,
+  kyc_profession TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -36,6 +41,33 @@ BEGIN
     -- Admin Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Admins can update all profiles.') THEN
         CREATE POLICY "Admins can update all profiles." ON profiles FOR UPDATE USING (
+          EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+        );
+    END IF;
+END $$;
+
+-- ACTIVATIONS
+CREATE TABLE IF NOT EXISTS activations (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  method TEXT NOT NULL,
+  transaction_id TEXT NOT NULL UNIQUE,
+  status TEXT CHECK (status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE activations ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'activations' AND policyname = 'Users can view their own activations.') THEN
+        CREATE POLICY "Users can view their own activations." ON activations FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'activations' AND policyname = 'Users can insert their own activations.') THEN
+        CREATE POLICY "Users can insert their own activations." ON activations FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'activations' AND policyname = 'Admins can manage all activations.') THEN
+        CREATE POLICY "Admins can manage all activations." ON activations FOR ALL USING (
           EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
         );
     END IF;
@@ -60,18 +92,14 @@ ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
-    -- Drop the existing constraint so we can update it with 'tiktok'
     ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_category_check;
-    -- Add the updated constraint
     ALTER TABLE tasks ADD CONSTRAINT tasks_category_check 
     CHECK (category IN ('youtube', 'facebook', 'instagram', 'twitter', 'tiktok', 'other'));
 
-    -- Standard Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tasks' AND policyname = 'Tasks are viewable by authenticated users.') THEN
         CREATE POLICY "Tasks are viewable by authenticated users." ON tasks FOR SELECT USING (auth.role() = 'authenticated');
     END IF;
 
-    -- Admin Policies (Fixes the INSERT error)
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tasks' AND policyname = 'Admins can manage tasks.') THEN
         CREATE POLICY "Admins can manage tasks." ON tasks FOR ALL USING (
           EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
@@ -93,7 +121,6 @@ ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
-    -- Standard Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'submissions' AND policyname = 'Users can view their own submissions.') THEN
         CREATE POLICY "Users can view their own submissions." ON submissions FOR SELECT USING (auth.uid() = user_id);
     END IF;
@@ -101,7 +128,6 @@ BEGIN
         CREATE POLICY "Users can insert their own submissions." ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
     END IF;
 
-    -- Admin Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'submissions' AND policyname = 'Admins can manage all submissions.') THEN
         CREATE POLICY "Admins can manage all submissions." ON submissions FOR ALL USING (
           EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
@@ -123,12 +149,10 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
-    -- Standard Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'transactions' AND policyname = 'Users can view their own transactions.') THEN
         CREATE POLICY "Users can view their own transactions." ON transactions FOR SELECT USING (auth.uid() = user_id);
     END IF;
 
-    -- Admin Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'transactions' AND policyname = 'Admins can insert transactions.') THEN
         CREATE POLICY "Admins can insert transactions." ON transactions FOR INSERT WITH CHECK (
           EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
@@ -136,7 +160,7 @@ BEGIN
     END IF;
 END $$;
 
--- WITHDRAWALS (Table creation was missing in some previous versions, ensuring it exists)
+-- WITHDRAWALS
 CREATE TABLE IF NOT EXISTS withdrawals (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -188,29 +212,41 @@ BEGIN
     END IF;
 END $$;
 
--- Insert initial settings
 INSERT INTO system_settings (id, notice_text, min_withdrawal, activation_fee)
 VALUES (1, 'Welcome to Riseii Pro! Complete tasks to earn.', 250, 30)
 ON CONFLICT (id) DO NOTHING;
 
--- AUTH TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
     assigned_role TEXT := 'user';
+    referrer_id UUID;
+    input_ref_code TEXT;
 BEGIN
   IF NEW.email = 'rakibulislamrovin@gmail.com' THEN
     assigned_role := 'admin';
   END IF;
 
-  INSERT INTO public.profiles (id, email, full_name, referral_code, role)
+  input_ref_code := NEW.raw_user_meta_data->>'referral_id';
+
+  IF input_ref_code IS NOT NULL AND input_ref_code <> '' THEN
+    SELECT id INTO referrer_id FROM public.profiles WHERE referral_code = upper(input_ref_code);
+  END IF;
+
+  INSERT INTO public.profiles (id, email, full_name, referral_code, role, referred_by)
   VALUES (
     NEW.id, 
     NEW.email, 
     COALESCE(NEW.raw_user_meta_data->>'full_name', 'Member'),
     upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 8)),
-    assigned_role
+    assigned_role,
+    referrer_id
   );
+
+  IF referrer_id IS NOT NULL THEN
+    UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = referrer_id;
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -220,7 +256,6 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Ensure admin status for the specific email
 UPDATE public.profiles 
 SET role = 'admin' 
 WHERE email = 'rakibulislamrovin@gmail.com';
