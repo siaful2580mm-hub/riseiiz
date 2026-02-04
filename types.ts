@@ -19,6 +19,9 @@ export interface Profile {
   is_banned: boolean;
   is_active: boolean;
   kyc_status: KYCStatus;
+  kyc_full_name: string | null;
+  kyc_id_number: string | null;
+  kyc_document_url: string | null;
   created_at: string;
 }
 

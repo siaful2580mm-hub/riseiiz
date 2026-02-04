@@ -2,6 +2,7 @@
 import { Profile, Task, Submission, Withdrawal, Transaction, SystemSettings } from '../types';
 
 // Initial Mock Data
+// Fix: Added missing kyc_full_name, kyc_id_number, and kyc_document_url properties to mockUser
 export const mockUser: Profile = {
   id: 'user-123',
   email: 'john@example.com',
@@ -15,6 +16,9 @@ export const mockUser: Profile = {
   is_banned: false,
   is_active: true,
   kyc_status: 'verified',
+  kyc_full_name: 'John Doe',
+  kyc_id_number: '1234567890',
+  kyc_document_url: 'https://picsum.photos/400/300',
   created_at: new Date().toISOString()
 };
 

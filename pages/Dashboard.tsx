@@ -3,15 +3,18 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { TrendingUp, Users, ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2 } from 'lucide-react';
+import { TrendingUp, Users, ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SystemSettings, Task } from '../types.ts';
 
 const Dashboard: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isOwner = user?.email === 'rakibulislamrovin@gmail.com';
+  const isAdmin = profile?.role === 'admin' || isOwner;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,6 +37,23 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {isAdmin && (
+        <Link to="/admin" className="block">
+          <div className="bg-emerald-500 p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-emerald-500/20">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 p-2 rounded-xl">
+                <ShieldAlert className="text-white" size={24} />
+              </div>
+              <div>
+                <h2 className="text-white font-black text-lg">WELCOME BACK, ADMIN</h2>
+                <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest">You have full system control</p>
+              </div>
+            </div>
+            <ArrowRight className="text-white" />
+          </div>
+        </Link>
+      )}
+
       {settings?.notice_text && (
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-start gap-4 animate-pulse">
           <Megaphone className="text-emerald-400 shrink-0 mt-1" size={20} />

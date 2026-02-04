@@ -2,16 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { ShieldCheck, Users, Package, Clock, CheckCircle, XCircle, Trash2, Edit, Loader2 } from 'lucide-react';
+import { ShieldCheck, Users, Package, Clock, CheckCircle, XCircle, Trash2, Edit, Loader2, Eye, FileText } from 'lucide-react';
 import { Submission, Task, Profile } from '../types.ts';
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'tasks' | 'users'>('submissions');
+  const [activeTab, setActiveTab] = useState<'submissions' | 'tasks' | 'users' | 'kyc'>('submissions');
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
+  const [pendingKYC, setPendingKYC] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [processingId, setProcessingId] = useState<string | number | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -33,11 +34,32 @@ const Admin: React.FC = () => {
       } else if (activeTab === 'users') {
         const { data } = await supabase.from('profiles').select('*').limit(50).order('created_at', { ascending: false });
         setUsers(data || []);
+      } else if (activeTab === 'kyc') {
+        const { data } = await supabase.from('profiles').select('*').eq('kyc_status', 'pending');
+        setPendingKYC(data || []);
       }
     } catch (err) {
       console.error('Admin fetch error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKYCAction = async (userId: string, action: 'verified' | 'rejected') => {
+    setProcessingId(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ kyc_status: action })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      setPendingKYC(prev => prev.filter(u => u.id !== userId));
+      alert(`KYC ${action === 'verified' ? 'approved' : 'rejected'}!`);
+    } catch (err: any) {
+      alert(err.message || 'Action failed');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -92,12 +114,12 @@ const Admin: React.FC = () => {
         <h2 className="text-2xl font-black flex items-center gap-2">
           <ShieldCheck className="text-emerald-400" /> Admin Command
         </h2>
-        <div className="flex gap-1 glass rounded-lg p-1">
-          {(['submissions', 'tasks', 'users'] as const).map((tab) => (
+        <div className="flex gap-1 glass rounded-lg p-1 overflow-x-auto">
+          {(['submissions', 'tasks', 'users', 'kyc'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${
+              className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all whitespace-nowrap ${
                 activeTab === tab ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -107,12 +129,19 @@ const Admin: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <GlassCard className="p-3 bg-blue-500/10 border-blue-500/20">
-          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Pending</span>
+          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Pending Tasks</span>
           <div className="flex items-center justify-between mt-1">
             <span className="text-xl font-black text-blue-400">{submissions.length}</span>
             <Clock size={16} className="text-blue-500/50" />
+          </div>
+        </GlassCard>
+        <GlassCard className="p-3 bg-amber-500/10 border-amber-500/20">
+          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Pending KYC</span>
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-xl font-black text-amber-400">{pendingKYC.length || '...'}</span>
+            <ShieldCheck size={16} className="text-amber-500/50" />
           </div>
         </GlassCard>
         <GlassCard className="p-3 bg-emerald-500/10 border-emerald-500/20">
@@ -123,7 +152,7 @@ const Admin: React.FC = () => {
           </div>
         </GlassCard>
         <GlassCard className="p-3 bg-pink-500/10 border-pink-500/20">
-          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Users</span>
+          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Total Users</span>
           <div className="flex items-center justify-between mt-1">
             <span className="text-xl font-black text-pink-400">{users.length || '...'}</span>
             <Users size={16} className="text-pink-500/50" />
@@ -176,6 +205,58 @@ const Admin: React.FC = () => {
             </section>
           )}
 
+          {activeTab === 'kyc' && (
+            <section className="space-y-4">
+              <h3 className="font-bold">Pending KYC Verifications</h3>
+              <div className="space-y-3">
+                {pendingKYC.length === 0 ? (
+                  <div className="text-center py-12 text-slate-600 text-sm italic">No pending KYC requests.</div>
+                ) : (
+                  pendingKYC.map((u) => (
+                    <GlassCard key={u.id} className="p-4">
+                      <div className="flex flex-col sm:flex-row justify-between gap-4">
+                        <div className="flex gap-4">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/10 shrink-0">
+                            <img src={u.kyc_document_url || ''} alt="ID" className="w-full h-full object-cover" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm">{u.kyc_full_name}</h4>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">{u.kyc_id_number}</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{u.email}</p>
+                            <a 
+                              href={u.kyc_document_url || '#'} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-400 mt-2 hover:underline"
+                            >
+                              VIEW FULL DOCUMENT <Eye size={10} />
+                            </a>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 self-end sm:self-center">
+                          <button 
+                            disabled={processingId === u.id}
+                            onClick={() => handleKYCAction(u.id, 'verified')}
+                            className="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30 font-bold text-xs uppercase hover:bg-emerald-500 hover:text-slate-950 transition-all"
+                          >
+                            {processingId === u.id ? <Loader2 className="animate-spin" size={16} /> : 'Verify'}
+                          </button>
+                          <button 
+                            disabled={processingId === u.id}
+                            onClick={() => handleKYCAction(u.id, 'rejected')}
+                            className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg border border-red-500/30 font-bold text-xs uppercase hover:bg-red-500 hover:text-slate-950 transition-all"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </GlassCard>
+                  ))
+                )}
+              </div>
+            </section>
+          )}
+
           {activeTab === 'tasks' && (
             <section className="space-y-4">
               <div className="flex justify-between items-center">
@@ -212,7 +293,7 @@ const Admin: React.FC = () => {
                       <tr>
                         <th className="p-3 font-bold uppercase">Name / Email</th>
                         <th className="p-3 font-bold uppercase">Balance</th>
-                        <th className="p-3 font-bold uppercase">Referrals</th>
+                        <th className="p-3 font-bold uppercase">KYC Status</th>
                         <th className="p-3 font-bold uppercase">Status</th>
                       </tr>
                     </thead>
@@ -224,7 +305,14 @@ const Admin: React.FC = () => {
                             <div className="text-slate-500 truncate max-w-[150px]">{u.email}</div>
                           </td>
                           <td className="p-3 font-bold text-emerald-400">৳{u.balance.toFixed(2)}</td>
-                          <td className="p-3 text-blue-400 font-bold">{u.referral_count}</td>
+                          <td className="p-3">
+                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black ${
+                              u.kyc_status === 'verified' ? 'bg-emerald-500/20 text-emerald-400' : 
+                              u.kyc_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-400'
+                            }`}>
+                              {u.kyc_status.toUpperCase()}
+                            </span>
+                          </td>
                           <td className="p-3">
                             <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${u.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-500'}`}>
                               {u.is_active ? 'ACTIVE' : 'INACTIVE'}

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { Mail, Lock, Loader2, ArrowRight, User } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle } from 'lucide-react';
 
 const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -10,10 +10,12 @@ const Auth: React.FC = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ 
@@ -24,13 +26,18 @@ const Auth: React.FC = () => {
           }
         });
         if (error) throw error;
-        alert('Check your email for confirmation link!');
+        alert('Check your email for confirmation link! (Check Spam folder)');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
     } catch (error: any) {
-      alert(error.message);
+      console.error('Auth error:', error);
+      if (error.message === 'Failed to fetch') {
+        setErrorMsg('Connection Error: Could not reach Supabase. Please check if your project is active or if you have an ad-blocker/VPN interfering.');
+      } else {
+        setErrorMsg(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -47,6 +54,13 @@ const Auth: React.FC = () => {
             {isSignUp ? 'Join Riseii Pro and start earning' : 'Sign in to access your dashboard'}
           </p>
         </div>
+
+        {errorMsg && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex gap-3 items-start animate-in fade-in duration-300">
+            <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
+            <p className="text-xs text-red-200 leading-relaxed font-medium">{errorMsg}</p>
+          </div>
+        )}
 
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
@@ -108,7 +122,10 @@ const Auth: React.FC = () => {
 
         <div className="text-center pt-4">
           <button 
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setErrorMsg(null);
+            }}
             className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
           >
             {isSignUp ? 'ALREADY HAVE AN ACCOUNT? SIGN IN' : "DON'T HAVE AN ACCOUNT? SIGN UP"}

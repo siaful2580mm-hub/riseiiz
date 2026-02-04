@@ -10,6 +10,7 @@ import Wallet from './pages/Wallet.tsx';
 import Profile from './pages/Profile.tsx';
 import Admin from './pages/Admin.tsx';
 import Auth from './pages/Auth.tsx';
+import KYC from './pages/KYC.tsx';
 import GlassCard from './components/GlassCard.tsx';
 import { Loader2, Settings, AlertTriangle, ExternalLink } from 'lucide-react';
 
@@ -65,6 +66,7 @@ const AppContent: React.FC = () => {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/kyc" element={<KYC />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
