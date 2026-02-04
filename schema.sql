@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Check if policies exist before creating to avoid errors on re-run
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Public profiles are viewable by everyone.') THEN
@@ -114,7 +113,7 @@ ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'settings' AND policyname = 'Settings are readable by all.') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'system_settings' AND policyname = 'Settings are readable by all.') THEN
         CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
     END IF;
 END $$;
@@ -124,13 +123,33 @@ INSERT INTO system_settings (id, notice_text, min_withdrawal, activation_fee)
 VALUES (1, 'Welcome to Riseii Pro! Complete tasks to earn.', 250, 30)
 ON CONFLICT (id) DO NOTHING;
 
--- AUTH TRIGGER: Create profile on signup and assign Admin role to specific user
+-- SEED TASKS (Specific requests)
+INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
+VALUES ('Visit Our Partner Website', 'Visit the link, stay for 30 seconds, and upload a screenshot of the homepage.', 'other', 2.50, 'https://example.com', 'image')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO tasks (title, description, category, reward_amount, link, proof_type, copy_text, image_url)
+VALUES ('Post on Facebook Feed', '1. Copy the caption provided. 2. Download the image. 3. Post it on your Facebook timeline. 4. Upload the screenshot of your post.', 'facebook', 15.00, 'https://facebook.com', 'image', 'Riseii Pro is the best earning platform! Join now using my referral code.', 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
+VALUES ('Like Our Facebook Page', 'Visit our FB page and hit the Like button. Submit screenshot as proof.', 'facebook', 3.00, 'https://facebook.com/riseiipro', 'image')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
+VALUES ('Watch TikTok Video', 'Watch the full video, like it, and upload a screenshot proof.', 'tiktok', 2.00, 'https://tiktok.com', 'image')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
+VALUES ('Watch YouTube Video', 'Watch the video for at least 2 minutes, like, and subscribe. Upload screenshot.', 'youtube', 5.00, 'https://youtube.com', 'image')
+ON CONFLICT DO NOTHING;
+
+-- AUTH TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
     assigned_role TEXT := 'user';
 BEGIN
-  -- Automatically make this specific email an admin
   IF NEW.email = 'rakibulislamrovin@gmail.com' THEN
     assigned_role := 'admin';
   END IF;
@@ -152,7 +171,6 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- If the user already exists, update them to admin
 UPDATE public.profiles 
 SET role = 'admin' 
 WHERE email = 'rakibulislamrovin@gmail.com';
