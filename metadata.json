@@ -1,0 +1,7 @@
+{
+  "name": "Riseii Pro",
+  "description": "Advanced micro-tasking and earning platform with social media tasks, referral rewards, and secure withdrawals.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
