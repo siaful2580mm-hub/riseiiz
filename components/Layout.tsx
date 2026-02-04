@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Wallet, CheckSquare, User, LayoutDashboard, Settings } from 'lucide-react';
-import { db } from '../services/mockDb.ts';
+import { useAuth } from '../context/AuthContext.tsx';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,7 +11,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith('/admin');
-  const user = db.user;
+  const { profile } = useAuth();
 
   const NavItem = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => (
     <NavLink
@@ -37,10 +37,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden md:block glass-dark px-3 py-1 rounded-full border border-emerald-500/20">
-            <span className="text-emerald-400 font-bold">৳ {user.balance.toFixed(2)}</span>
+            <span className="text-emerald-400 font-bold">৳ {profile?.balance?.toFixed(2) || '0.00'}</span>
           </div>
-          <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500/30">
-            <img src={user.avatar_url || 'https://picsum.photos/32'} alt="avatar" />
+          <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500/30 bg-slate-800 flex items-center justify-center">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+            ) : (
+              <User size={16} className="text-slate-500" />
+            )}
           </div>
         </div>
       </header>
@@ -50,7 +54,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bottom-nav-blur border-t border-white/10 flex justify-around items-center px-2">
-        {user.role === 'admin' && isAdminPath ? (
+        {profile?.role === 'admin' && isAdminPath ? (
           <>
             <NavItem to="/admin" icon={LayoutDashboard} label="Admin" />
             <NavItem to="/admin/tasks" icon={Settings} label="Tasks" />

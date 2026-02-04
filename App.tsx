@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { supabase } from './services/supabase.ts';
+import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import Layout from './components/Layout.tsx';
 import Dashboard from './pages/Dashboard.tsx';
 import Tasks from './pages/Tasks.tsx';
@@ -11,24 +11,8 @@ import Admin from './pages/Admin.tsx';
 import Auth from './pages/Auth.tsx';
 import { Loader2 } from 'lucide-react';
 
-const App: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+const AppContent: React.FC = () => {
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -38,7 +22,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (!session) {
+  if (!user) {
     return <Auth />;
   }
 
@@ -55,6 +39,14 @@ const App: React.FC = () => {
         </Routes>
       </Layout>
     </Router>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 
