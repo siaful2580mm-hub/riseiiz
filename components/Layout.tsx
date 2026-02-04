@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Wallet, CheckSquare, User, LayoutDashboard, Settings, LogOut, ShieldCheck } from 'lucide-react';
-import { db } from '../services/mockDb';
+import { Home, Wallet, CheckSquare, User, LayoutDashboard, Settings } from 'lucide-react';
+import { db } from '../services/mockDb.ts';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,7 +29,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-40 w-full glass px-4 py-3 flex justify-between items-center shadow-lg">
         <div className="flex items-center space-y-1">
           <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">
@@ -46,12 +45,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 pb-24 px-4 pt-6 max-w-4xl mx-auto w-full">
         {children}
       </main>
 
-      {/* Bottom Navigation (Mobile/Standard) */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bottom-nav-blur border-t border-white/10 flex justify-around items-center px-2">
         {user.role === 'admin' && isAdminPath ? (
           <>

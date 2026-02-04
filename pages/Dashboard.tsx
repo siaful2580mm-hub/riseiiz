@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { db } from '../services/mockDb';
-import GlassCard from '../components/GlassCard';
-import { TrendingUp, Users, ExternalLink, Megaphone, ArrowRight } from 'lucide-react';
+import { db } from '../services/mockDb.ts';
+import GlassCard from '../components/GlassCard.tsx';
+import { TrendingUp, Users, ExternalLink, Megaphone, ArrowRight, CheckSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
@@ -11,7 +11,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Notice Section */}
       {settings.notice_text && (
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-start gap-4 animate-pulse">
           <Megaphone className="text-emerald-400 shrink-0 mt-1" size={20} />
@@ -33,7 +32,6 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Balance Summary */}
       <div className="grid grid-cols-2 gap-4">
         <GlassCard className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-500/30">
           <div className="flex flex-col">
@@ -55,12 +53,6 @@ const Dashboard: React.FC = () => {
         </GlassCard>
       </div>
 
-      {/* Ad Space */}
-      <div className="w-full h-24 glass-dark rounded-xl flex items-center justify-center text-slate-600 border border-white/5 border-dashed">
-        <p className="text-xs font-medium uppercase tracking-widest">Sponsored Advertisement</p>
-      </div>
-
-      {/* Quick Actions */}
       <section className="space-y-4">
         <h3 className="text-lg font-bold flex items-center gap-2">
           <CheckSquare className="text-emerald-400" size={20} /> Active Opportunities
@@ -86,34 +78,8 @@ const Dashboard: React.FC = () => {
           </Link>
         </div>
       </section>
-
-      {/* Referral Info */}
-      <GlassCard className="relative overflow-hidden">
-        <div className="relative z-10 flex flex-col gap-2">
-          <h3 className="text-lg font-bold">Refer & Earn Bonus</h3>
-          <p className="text-sm text-slate-400">Invite friends to Riseii Pro and get 5 BDT each when they sign up.</p>
-          <div className="mt-4 flex items-center gap-2">
-            <div className="flex-1 bg-slate-900 rounded-lg p-3 text-center border border-white/10 font-mono text-emerald-400">
-              {user.referral_code}
-            </div>
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(user.referral_code);
-                alert("Referral code copied!");
-              }}
-              className="px-6 py-3 bg-gradient-primary rounded-lg font-bold text-sm shadow-lg shadow-emerald-500/20 active:scale-95"
-            >
-              COPY
-            </button>
-          </div>
-        </div>
-        <div className="absolute -right-6 -bottom-6 text-emerald-500/5 opacity-50">
-          <Users size={120} />
-        </div>
-      </GlassCard>
     </div>
   );
 };
 
-import { CheckSquare } from 'lucide-react';
 export default Dashboard;
