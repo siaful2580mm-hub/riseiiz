@@ -1,13 +1,14 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (window as any).process?.env?.SUPABASE_URL || 'https://YOUR_PROJECT_ID.supabase.co';
-const supabaseAnonKey = (window as any).process?.env?.SUPABASE_ANON_KEY || 'YOUR_ANON_KEY';
+const supabaseUrl = 'https://cetmeibdbnxoqfnrrdzn.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNldG1laWJkYm54b3FmbnJyZHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMDE5MDYsImV4cCI6MjA4NTc3NzkwNn0.30liUik1etEB2mLedQhskQz5Zw-mxKJJ0KbMa9fVtBs';
 
-// Check if keys are still placeholders
+// Configuration check
+// Add explicit string casts to avoid TypeScript errors regarding non-overlapping literal types
 export const isSupabaseConfigured = 
-  supabaseUrl !== 'https://YOUR_PROJECT_ID.supabase.co' && 
-  supabaseAnonKey !== 'YOUR_ANON_KEY' &&
+  (supabaseUrl as string) !== 'https://YOUR_PROJECT_ID.supabase.co' && 
+  (supabaseAnonKey as string) !== 'YOUR_ANON_KEY' &&
   supabaseUrl.startsWith('https://');
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

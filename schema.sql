@@ -129,21 +129,42 @@ ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Settings are readable by all." ON system_settings
   FOR SELECT USING (true);
 
--- Functions for handling referrals and balances
+-- Insert initial settings
+INSERT INTO system_settings (id, notice_text, min_withdrawal, activation_fee)
+VALUES (1, 'Welcome to Riseii Pro! Complete tasks to earn.', 250, 30)
+ON CONFLICT (id) DO NOTHING;
+
+-- AUTH TRIGGER: Create profile on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, referral_code)
+  VALUES (
+    NEW.id, 
+    NEW.email, 
+    NEW.raw_user_meta_data->>'full_name',
+    upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 8))
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- REFERRAL TRIGGER
 CREATE OR REPLACE FUNCTION handle_referral_bonus()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.referred_by IS NOT NULL THEN
-    -- Give bonus to referrer
     UPDATE profiles SET 
       balance = balance + 5,
       referral_count = referral_count + 1
     WHERE id = NEW.referred_by;
     
-    -- Give bonus to new user
     UPDATE profiles SET balance = balance + 5 WHERE id = NEW.id;
     
-    -- Record transactions
     INSERT INTO transactions (user_id, type, amount, description)
     VALUES 
       (NEW.referred_by, 'bonus', 5, 'Referral bonus for ' || NEW.email),

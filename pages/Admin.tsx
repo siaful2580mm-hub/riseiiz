@@ -45,22 +45,18 @@ const Admin: React.FC = () => {
     if (!sub.task) return;
     setProcessingId(sub.id);
     try {
-      // 1. Mark submission approved
       const { error: subErr } = await supabase.from('submissions').update({ status: 'approved' }).eq('id', sub.id);
       if (subErr) throw subErr;
 
-      // 2. Fetch current balance to be safe
       const { data: profile } = await supabase.from('profiles').select('balance').eq('id', sub.user_id).single();
       const currentBalance = profile?.balance || 0;
 
-      // 3. Add balance
       const { error: balErr } = await supabase
         .from('profiles')
         .update({ balance: currentBalance + sub.task.reward_amount })
         .eq('id', sub.user_id);
       if (balErr) throw balErr;
 
-      // 4. Record transaction
       await supabase.from('transactions').insert({
         user_id: sub.user_id,
         type: 'earning',
@@ -205,7 +201,6 @@ const Admin: React.FC = () => {
               </div>
             </section>
           )}
-          v
 
           {activeTab === 'users' && (
             <section className="space-y-4">
