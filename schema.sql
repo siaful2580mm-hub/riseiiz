@@ -40,10 +40,12 @@ CREATE TABLE IF NOT EXISTS tasks (
   id BIGSERIAL PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT,
-  category TEXT CHECK (category IN ('youtube', 'facebook', 'instagram', 'twitter', 'other')),
+  category TEXT CHECK (category IN ('youtube', 'facebook', 'instagram', 'twitter', 'tiktok', 'other')),
   reward_amount NUMERIC NOT NULL,
   link TEXT,
   proof_type TEXT CHECK (proof_type IN ('image', 'text')) DEFAULT 'image',
+  copy_text TEXT,
+  image_url TEXT,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -112,7 +114,7 @@ ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'system_settings' AND policyname = 'Settings are readable by all.') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'settings' AND policyname = 'Settings are readable by all.') THEN
         CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
     END IF;
 END $$;

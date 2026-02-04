@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { ShieldCheck, Users, Package, Clock, CheckCircle, XCircle, Trash2, Edit, Loader2, Eye, FileText } from 'lucide-react';
-import { Submission, Task, Profile } from '../types.ts';
+import { ShieldCheck, Users, Package, Clock, CheckCircle, XCircle, Trash2, Edit, Loader2, Eye, Plus, ExternalLink } from 'lucide-react';
+import { Submission, Task, Profile, TaskCategory, ProofType } from '../types.ts';
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'submissions' | 'tasks' | 'users' | 'kyc'>('submissions');
@@ -13,6 +13,19 @@ const Admin: React.FC = () => {
   const [pendingKYC, setPendingKYC] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | number | null>(null);
+  
+  // Create Task Form State
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    category: 'facebook' as TaskCategory,
+    reward_amount: 10,
+    link: '',
+    proof_type: 'image' as ProofType,
+    copy_text: '',
+    image_url: ''
+  });
 
   useEffect(() => {
     fetchData();
@@ -45,19 +58,17 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleKYCAction = async (userId: string, action: 'verified' | 'rejected') => {
-    setProcessingId(userId);
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProcessingId('creating');
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ kyc_status: action })
-        .eq('id', userId);
-      
+      const { error } = await supabase.from('tasks').insert([newTask]);
       if (error) throw error;
-      setPendingKYC(prev => prev.filter(u => u.id !== userId));
-      alert(`KYC ${action === 'verified' ? 'approved' : 'rejected'}!`);
+      alert('Task created successfully!');
+      setShowTaskForm(false);
+      fetchData();
     } catch (err: any) {
-      alert(err.message || 'Action failed');
+      alert(err.message || 'Creation failed');
     } finally {
       setProcessingId(null);
     }
@@ -108,12 +119,28 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleKYCAction = async (userId: string, action: 'verified' | 'rejected') => {
+    setProcessingId(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ kyc_status: action })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      setPendingKYC(prev => prev.filter(u => u.id !== userId));
+      alert(`KYC ${action === 'verified' ? 'approved' : 'rejected'}!`);
+    } catch (err: any) {
+      alert(err.message || 'Action failed');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-black flex items-center gap-2">
-          <ShieldCheck className="text-emerald-400" /> Admin Command
-        </h2>
+        <h2 className="text-2xl font-black">Admin Command</h2>
         <div className="flex gap-1 glass rounded-lg p-1 overflow-x-auto">
           {(['submissions', 'tasks', 'users', 'kyc'] as const).map((tab) => (
             <button
@@ -129,202 +156,172 @@ const Admin: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <GlassCard className="p-3 bg-blue-500/10 border-blue-500/20">
-          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Pending Tasks</span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-xl font-black text-blue-400">{submissions.length}</span>
-            <Clock size={16} className="text-blue-500/50" />
-          </div>
-        </GlassCard>
-        <GlassCard className="p-3 bg-amber-500/10 border-amber-500/20">
-          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Pending KYC</span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-xl font-black text-amber-400">{pendingKYC.length || '...'}</span>
-            <ShieldCheck size={16} className="text-amber-500/50" />
-          </div>
-        </GlassCard>
-        <GlassCard className="p-3 bg-emerald-500/10 border-emerald-500/20">
-          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Total Tasks</span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-xl font-black text-emerald-400">{tasks.length || '...'}</span>
-            <Package size={16} className="text-emerald-500/50" />
-          </div>
-        </GlassCard>
-        <GlassCard className="p-3 bg-pink-500/10 border-pink-500/20">
-          <span className="text-[8px] uppercase tracking-tighter text-slate-400 font-bold">Total Users</span>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-xl font-black text-pink-400">{users.length || '...'}</span>
-            <Users size={16} className="text-pink-500/50" />
-          </div>
-        </GlassCard>
-      </div>
-
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="animate-spin text-emerald-500" /></div>
       ) : (
         <>
           {activeTab === 'submissions' && (
-            <section className="space-y-4">
-              <h3 className="font-bold">Pending Submissions</h3>
-              <div className="space-y-3">
-                {submissions.length === 0 ? (
-                  <div className="text-center py-12 text-slate-600 text-sm italic">Clean desk! No pending submissions.</div>
-                ) : (
-                  submissions.map((sub) => (
-                    <GlassCard key={sub.id} className="p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <p className="text-xs text-emerald-400 font-bold uppercase">{sub.task?.title || 'Unknown Task'}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">UID: {sub.user_id}</p>
-                          <div className="bg-slate-900 p-2 rounded border border-white/5 mt-2 max-w-xs sm:max-w-md">
-                            <p className="text-xs break-all font-mono text-slate-300">{sub.proof_data}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button 
-                            disabled={processingId === sub.id}
-                            onClick={() => handleApprove(sub)}
-                            className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30 hover:bg-emerald-500 hover:text-slate-950 transition-all disabled:opacity-50"
-                          >
-                            {processingId === sub.id ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
-                          </button>
-                          <button 
-                            disabled={processingId === sub.id}
-                            onClick={() => handleReject(sub.id)}
-                            className="p-2 bg-red-500/20 text-red-400 rounded-lg border border-red-500/30 hover:bg-red-500 hover:text-slate-950 transition-all disabled:opacity-50"
-                          >
-                            <XCircle size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    </GlassCard>
-                  ))
-                )}
-              </div>
-            </section>
-          )}
-
-          {activeTab === 'kyc' && (
-            <section className="space-y-4">
-              <h3 className="font-bold">Pending KYC Verifications</h3>
-              <div className="space-y-3">
-                {pendingKYC.length === 0 ? (
-                  <div className="text-center py-12 text-slate-600 text-sm italic">No pending KYC requests.</div>
-                ) : (
-                  pendingKYC.map((u) => (
-                    <GlassCard key={u.id} className="p-4">
-                      <div className="flex flex-col sm:flex-row justify-between gap-4">
-                        <div className="flex gap-4">
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/10 shrink-0">
-                            <img src={u.kyc_document_url || ''} alt="ID" className="w-full h-full object-cover" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm">{u.kyc_full_name}</h4>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">{u.kyc_id_number}</p>
-                            <p className="text-[10px] text-slate-500 mt-1">{u.email}</p>
-                            <a 
-                              href={u.kyc_document_url || '#'} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-400 mt-2 hover:underline"
-                            >
-                              VIEW FULL DOCUMENT <Eye size={10} />
-                            </a>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 self-end sm:self-center">
-                          <button 
-                            disabled={processingId === u.id}
-                            onClick={() => handleKYCAction(u.id, 'verified')}
-                            className="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30 font-bold text-xs uppercase hover:bg-emerald-500 hover:text-slate-950 transition-all"
-                          >
-                            {processingId === u.id ? <Loader2 className="animate-spin" size={16} /> : 'Verify'}
-                          </button>
-                          <button 
-                            disabled={processingId === u.id}
-                            onClick={() => handleKYCAction(u.id, 'rejected')}
-                            className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg border border-red-500/30 font-bold text-xs uppercase hover:bg-red-500 hover:text-slate-950 transition-all"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    </GlassCard>
-                  ))
-                )}
-              </div>
-            </section>
+            <div className="space-y-4">
+              <h3 className="font-bold">Pending Reviews ({submissions.length})</h3>
+              {submissions.map(sub => (
+                <GlassCard key={sub.id} className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs text-emerald-400 font-bold uppercase">{sub.task?.title}</p>
+                      <p className="text-[10px] text-slate-500">{sub.user_id}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleApprove(sub)} className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg"><CheckCircle size={18} /></button>
+                      <button onClick={() => handleReject(sub.id)} className="p-2 bg-red-500/20 text-red-400 rounded-lg"><XCircle size={18} /></button>
+                    </div>
+                  </div>
+                  {sub.task?.proof_type === 'image' ? (
+                    <a href={sub.proof_data} target="_blank" rel="noreferrer" className="block w-full h-40 rounded-xl overflow-hidden border border-white/10 group relative">
+                       <img src={sub.proof_data} className="w-full h-full object-cover" />
+                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs uppercase">View Full Proof</div>
+                    </a>
+                  ) : (
+                    <div className="bg-slate-900 p-3 rounded-xl border border-white/5 text-xs font-mono break-all text-slate-300">
+                      {sub.proof_data}
+                    </div>
+                  )}
+                </GlassCard>
+              ))}
+            </div>
           )}
 
           {activeTab === 'tasks' && (
-            <section className="space-y-4">
+            <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="font-bold">Task Manager</h3>
-                <button className="text-[10px] font-bold bg-emerald-500 text-slate-950 px-3 py-1 rounded">CREATE NEW</button>
+                <h3 className="font-bold">Active Tasks</h3>
+                <button 
+                  onClick={() => setShowTaskForm(true)}
+                  className="bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1"
+                >
+                  <Plus size={14} /> NEW TASK
+                </button>
               </div>
-              <div className="space-y-2">
-                {tasks.map(task => (
-                  <div key={task.id} className="glass-dark p-3 rounded-xl flex justify-between items-center border border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 glass rounded-lg flex items-center justify-center font-black text-emerald-400">৳{task.reward_amount}</div>
-                      <div>
-                        <h4 className="text-xs font-bold">{task.title}</h4>
-                        <p className="text-[10px] text-slate-500 uppercase">{task.category} • {task.proof_type}</p>
-                      </div>
+              
+              {showTaskForm && (
+                <GlassCard className="border-emerald-500/30 animate-in slide-in-from-top">
+                  <form onSubmit={handleCreateTask} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <input 
+                        placeholder="Task Title" 
+                        required
+                        className="col-span-2 bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none"
+                        value={newTask.title}
+                        onChange={e => setNewTask({...newTask, title: e.target.value})}
+                      />
+                      <select 
+                        className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none"
+                        value={newTask.category}
+                        onChange={e => setNewTask({...newTask, category: e.target.value as any})}
+                      >
+                        <option value="facebook">Facebook</option>
+                        <option value="youtube">YouTube</option>
+                        <option value="tiktok">TikTok</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="other">Other/Web</option>
+                      </select>
+                      <input 
+                        type="number" 
+                        placeholder="Reward (৳)"
+                        className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none"
+                        value={newTask.reward_amount}
+                        onChange={e => setNewTask({...newTask, reward_amount: parseFloat(e.target.value)})}
+                      />
                     </div>
-                    <div className="flex gap-1">
-                      <button className="p-1.5 hover:text-emerald-400 transition-colors"><Edit size={14}/></button>
-                      <button className="p-1.5 hover:text-red-400 transition-colors"><Trash2 size={14}/></button>
+                    <textarea 
+                      placeholder="Step-by-step instructions..." 
+                      className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm h-20 focus:border-emerald-500 outline-none"
+                      value={newTask.description}
+                      onChange={e => setNewTask({...newTask, description: e.target.value})}
+                    />
+                    <input 
+                      placeholder="Target Link (URL)"
+                      className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none"
+                      value={newTask.link}
+                      onChange={e => setNewTask({...newTask, link: e.target.value})}
+                    />
+                    
+                    <div className="border-t border-white/5 pt-4 space-y-3">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase">Advanced Assets (Optional)</p>
+                      <input 
+                        placeholder="Text for user to COPY (Post content)"
+                        className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none"
+                        value={newTask.copy_text}
+                        onChange={e => setNewTask({...newTask, copy_text: e.target.value})}
+                      />
+                      <input 
+                        placeholder="Image URL for user to DOWNLOAD"
+                        className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none"
+                        value={newTask.image_url}
+                        onChange={e => setNewTask({...newTask, image_url: e.target.value})}
+                      />
                     </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+
+                    <div className="flex gap-2">
+                      <button type="submit" className="flex-1 bg-emerald-500 text-slate-950 font-bold py-3 rounded-xl">SAVE TASK</button>
+                      <button type="button" onClick={() => setShowTaskForm(false)} className="px-6 bg-slate-800 font-bold py-3 rounded-xl">CANCEL</button>
+                    </div>
+                  </form>
+                </GlassCard>
+              )}
+
+              {tasks.map(task => (
+                <div key={task.id} className="glass-dark p-3 rounded-xl flex justify-between items-center">
+                   <div className="flex items-center gap-3">
+                     <span className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-black text-[10px]">৳{task.reward_amount}</span>
+                     <div>
+                       <h4 className="text-xs font-bold">{task.title}</h4>
+                       <p className="text-[8px] text-slate-500 uppercase tracking-widest">{task.category} • {task.proof_type}</p>
+                     </div>
+                   </div>
+                   <button className="p-2 text-red-500/50 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                </div>
+              ))}
+            </div>
           )}
 
+          {activeTab === 'kyc' && (
+            <div className="space-y-4">
+              <h3 className="font-bold">Pending KYC ({pendingKYC.length})</h3>
+              {pendingKYC.map(u => (
+                <GlassCard key={u.id} className="flex gap-4">
+                   <div className="w-20 h-20 rounded-xl bg-slate-900 border border-white/10 overflow-hidden shrink-0">
+                      <img src={u.kyc_document_url || ''} className="w-full h-full object-cover" />
+                   </div>
+                   <div className="flex-1 space-y-1">
+                      <h4 className="font-bold text-sm">{u.kyc_full_name}</h4>
+                      <p className="text-[10px] font-mono text-slate-500">{u.kyc_id_number}</p>
+                      <a href={u.kyc_document_url || ''} target="_blank" rel="noreferrer" className="text-[10px] text-blue-400 font-bold hover:underline inline-flex items-center gap-1">VIEW ID <ExternalLink size={10} /></a>
+                      <div className="flex gap-2 mt-2">
+                         <button onClick={() => handleKYCAction(u.id, 'verified')} className="px-3 py-1.5 bg-emerald-500 text-slate-950 text-[10px] font-black rounded-lg">APPROVE</button>
+                         <button onClick={() => handleKYCAction(u.id, 'rejected')} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-[10px] font-black rounded-lg">REJECT</button>
+                      </div>
+                   </div>
+                </GlassCard>
+              ))}
+            </div>
+          )}
+          
           {activeTab === 'users' && (
-            <section className="space-y-4">
-              <h3 className="font-bold">Member Directory</h3>
-              <div className="glass-dark overflow-hidden rounded-xl border border-white/5">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[10px] text-left min-w-[500px]">
-                    <thead className="bg-white/5">
-                      <tr>
-                        <th className="p-3 font-bold uppercase">Name / Email</th>
-                        <th className="p-3 font-bold uppercase">Balance</th>
-                        <th className="p-3 font-bold uppercase">KYC Status</th>
-                        <th className="p-3 font-bold uppercase">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {users.map(u => (
-                        <tr key={u.id} className="hover:bg-white/5">
-                          <td className="p-3">
-                            <div className="font-bold">{u.full_name || 'No Name'}</div>
-                            <div className="text-slate-500 truncate max-w-[150px]">{u.email}</div>
-                          </td>
-                          <td className="p-3 font-bold text-emerald-400">৳{u.balance.toFixed(2)}</td>
-                          <td className="p-3">
-                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black ${
-                              u.kyc_status === 'verified' ? 'bg-emerald-500/20 text-emerald-400' : 
-                              u.kyc_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-400'
-                            }`}>
-                              {u.kyc_status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${u.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-500'}`}>
-                              {u.is_active ? 'ACTIVE' : 'INACTIVE'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
+            <div className="space-y-3">
+               <h3 className="font-bold">User Database</h3>
+               {users.map(u => (
+                 <div key={u.id} className="glass-dark p-3 rounded-xl flex justify-between items-center text-[10px]">
+                    <div className="flex-1">
+                      <p className="font-bold">{u.full_name}</p>
+                      <p className="text-slate-500">{u.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-emerald-400 font-black">৳{u.balance.toFixed(2)}</p>
+                      <p className="text-slate-500">Refs: {u.referral_count}</p>
+                    </div>
+                 </div>
+               ))}
+            </div>
           )}
         </>
       )}

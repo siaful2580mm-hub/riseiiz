@@ -3,7 +3,7 @@ export type UserRole = 'user' | 'admin';
 export type KYCStatus = 'none' | 'pending' | 'verified';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type WithdrawalStatus = 'pending' | 'processing' | 'completed' | 'rejected';
-export type TaskCategory = 'youtube' | 'facebook' | 'instagram' | 'twitter' | 'other';
+export type TaskCategory = 'youtube' | 'facebook' | 'instagram' | 'twitter' | 'tiktok' | 'other';
 export type ProofType = 'image' | 'text';
 
 export interface Profile {
@@ -33,6 +33,8 @@ export interface Task {
   reward_amount: number;
   link: string;
   proof_type: ProofType;
+  copy_text?: string;
+  image_url?: string;
   is_active: boolean;
   created_at: string;
 }
