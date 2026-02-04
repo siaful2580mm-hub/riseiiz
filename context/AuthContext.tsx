@@ -4,15 +4,11 @@ import { supabase } from '../services/supabase.ts';
 import { Profile } from '../types.ts';
 import { TRANSLATIONS } from '../constants.tsx';
 
-type Language = 'en' | 'bn';
-
 interface AuthContextType {
   user: any | null;
   profile: Profile | null;
   loading: boolean;
-  language: Language;
   t: any;
-  setLanguage: (lang: Language) => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -23,16 +19,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [language, setLangState] = useState<Language>(
-    (localStorage.getItem('riseii_lang') as Language) || 'en'
-  );
 
-  const setLanguage = (lang: Language) => {
-    setLangState(lang);
-    localStorage.setItem('riseii_lang', lang);
-  };
-
-  const t = TRANSLATIONS[language];
+  // Hardcode to Bangla only
+  const t = TRANSLATIONS.bn;
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -112,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, language, t, setLanguage, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, t, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

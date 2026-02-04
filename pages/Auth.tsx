@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
 import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle, Gift } from 'lucide-react';
+import { TRANSLATIONS } from '../constants.tsx';
 
 const Auth: React.FC = () => {
+  const t = TRANSLATIONS.bn;
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +16,6 @@ const Auth: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    // Extract referral code from URL search parameters if present
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) {
@@ -40,7 +41,7 @@ const Auth: React.FC = () => {
           }
         });
         if (error) throw error;
-        alert('Check your email for confirmation link! (Check Spam folder)');
+        alert(t.signup_success);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -48,7 +49,7 @@ const Auth: React.FC = () => {
     } catch (error: any) {
       console.error('Auth error:', error);
       if (error.message === 'Failed to fetch') {
-        setErrorMsg('Connection Error: Could not reach Supabase. Please check if your project is active or if you have an ad-blocker/VPN interfering.');
+        setErrorMsg('সংযোগ ত্রুটি: সুপাবেস সার্ভারে পৌঁছানো যাচ্ছে না।');
       } else {
         setErrorMsg(error.message);
       }
@@ -62,10 +63,10 @@ const Auth: React.FC = () => {
       <GlassCard className="w-full max-w-md space-y-6">
         <div className="text-center">
           <h2 className="text-3xl font-black bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
+            {isSignUp ? t.auth_signup : t.auth_login}
           </h2>
           <p className="text-slate-400 text-sm mt-2">
-            {isSignUp ? 'Join Riseii Pro and start earning' : 'Sign in to access your dashboard'}
+            {isSignUp ? 'Riseii Pro-তে যুক্ত হয়ে ইনকাম শুরু করুন' : 'আপনার ড্যাশবোর্ডে প্রবেশ করতে লগইন করুন'}
           </p>
         </div>
 
@@ -79,7 +80,7 @@ const Auth: React.FC = () => {
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Full Name</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.full_name}</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                 <input 
@@ -88,14 +89,14 @@ const Auth: React.FC = () => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm focus:border-emerald-500 outline-none transition-all"
-                  placeholder="John Doe"
+                  placeholder="আপনার পুরো নাম"
                 />
               </div>
             </div>
           )}
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Email Address</label>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.email}</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input 
@@ -104,13 +105,13 @@ const Auth: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm focus:border-emerald-500 outline-none transition-all"
-                placeholder="name@example.com"
+                placeholder="example@mail.com"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Password</label>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.password}</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input 
@@ -126,7 +127,7 @@ const Auth: React.FC = () => {
 
           {isSignUp && (
              <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Referral Code (Optional)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.ref_code} (ঐচ্ছিক)</label>
               <div className="relative">
                 <Gift className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500/50" size={18} />
                 <input 
@@ -146,7 +147,7 @@ const Auth: React.FC = () => {
             className="w-full py-4 bg-gradient-primary rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all text-slate-950 uppercase"
           >
             {loading ? <Loader2 className="animate-spin" size={20} /> : <ArrowRight size={20} />}
-            {isSignUp ? 'Create Account' : 'Sign In'}
+            {isSignUp ? t.auth_signup : t.auth_login}
           </button>
         </form>
 
@@ -158,7 +159,7 @@ const Auth: React.FC = () => {
             }}
             className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-widest"
           >
-            {isSignUp ? 'ALREADY HAVE AN ACCOUNT? SIGN IN' : "DON'T HAVE AN ACCOUNT? SIGN UP"}
+            {isSignUp ? t.auth_has_account : t.auth_no_account}
           </button>
         </div>
       </GlassCard>

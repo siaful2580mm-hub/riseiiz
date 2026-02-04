@@ -4,12 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { ShieldCheck, FileText, Upload, Camera, CheckCircle2, Loader2, AlertCircle, ChevronLeft, User as UserIcon, Calendar, MapPin, Phone, Briefcase } from 'lucide-react';
+import { ShieldCheck, FileText, Upload, Camera, CheckCircle2, Loader2, ChevronLeft, User as UserIcon, Calendar, MapPin, Phone, Briefcase } from 'lucide-react';
 
 const IMGBB_API_KEY = '5e66705a72b74bc10253029076d35cca';
 
 const KYC: React.FC = () => {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, t } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -29,9 +29,9 @@ const KYC: React.FC = () => {
         <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center animate-pulse">
           <FileText className="text-blue-400" size={40} />
         </div>
-        <h2 className="text-2xl font-black">KYC Under Review</h2>
-        <p className="text-slate-400 max-w-xs">Our team is verifying your information. This usually takes 24-48 hours. We'll notify you once verified.</p>
-        <button onClick={() => navigate('/profile')} className="mt-4 px-6 py-2 bg-slate-800 rounded-xl font-bold text-sm">Back to Profile</button>
+        <h2 className="text-2xl font-black">যাচাই করা হচ্ছে</h2>
+        <p className="text-slate-400 max-w-xs">{t.kyc_pending_desc}</p>
+        <button onClick={() => navigate('/profile')} className="mt-4 px-6 py-2 bg-slate-800 rounded-xl font-bold text-sm">{t.back}</button>
       </div>
     );
   }
@@ -42,9 +42,9 @@ const KYC: React.FC = () => {
         <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center">
           <CheckCircle2 className="text-emerald-400" size={40} />
         </div>
-        <h2 className="text-2xl font-black text-emerald-400">Account Verified</h2>
-        <p className="text-slate-400 max-w-xs">Congratulations! Your identity has been verified. You now have full access to all features.</p>
-        <button onClick={() => navigate('/profile')} className="mt-4 px-6 py-2 bg-slate-800 rounded-xl font-bold text-sm">Back to Profile</button>
+        <h2 className="text-2xl font-black text-emerald-400">পরিচয় যাচাইকৃত</h2>
+        <p className="text-slate-400 max-w-xs">{t.kyc_verified_desc}</p>
+        <button onClick={() => navigate('/profile')} className="mt-4 px-6 py-2 bg-slate-800 rounded-xl font-bold text-sm">{t.back}</button>
       </div>
     );
   }
@@ -68,7 +68,7 @@ const KYC: React.FC = () => {
       body: formData
     });
     const data = await response.json();
-    if (!data.success) throw new Error('Image upload failed');
+    if (!data.success) throw new Error('ছবি আপলোড ব্যর্থ হয়েছে');
     return data.data.url;
   };
 
@@ -100,9 +100,9 @@ const KYC: React.FC = () => {
       if (error) throw error;
 
       await refreshProfile();
-      alert('KYC submitted successfully!');
+      alert('KYC তথ্য সফলভাবে জমা দেওয়া হয়েছে!');
     } catch (err: any) {
-      alert(err.message || 'Submission failed');
+      alert(err.message || 'সাবমিশন ব্যর্থ হয়েছে');
     } finally {
       setLoading(false);
     }
@@ -114,13 +114,13 @@ const KYC: React.FC = () => {
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
           <ChevronLeft />
         </button>
-        <h2 className="text-2xl font-black">Account Verification</h2>
+        <h2 className="text-2xl font-black">{t.verify_id}</h2>
       </div>
 
       <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex gap-4">
         <ShieldCheck className="text-emerald-400 shrink-0" size={24} />
         <p className="text-xs text-emerald-100/70 leading-relaxed">
-          Provide your accurate personal information to unlock full account features. This data is only used for identity verification.
+          আপনার সঠিক তথ্য প্রদান করুন। এই তথ্যগুলো শুধুমাত্র আপনার পরিচয় যাচাইয়ের জন্য ব্যবহার করা হবে।
         </p>
       </div>
 
@@ -128,14 +128,14 @@ const KYC: React.FC = () => {
         <GlassCard className="space-y-4">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <UserIcon size={12} /> Full Name
+              <UserIcon size={12} /> {t.full_name}
             </label>
             <input 
               type="text"
               required
               value={formData.fullName}
               onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-              placeholder="Your full legal name"
+              placeholder="আপনার পুরো নাম লিখুন"
               className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none transition-all"
             />
           </div>
@@ -143,20 +143,20 @@ const KYC: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <Calendar size={12} /> Age
+                <Calendar size={12} /> {t.age}
               </label>
               <input 
                 type="number"
                 required
                 value={formData.age}
                 onChange={(e) => setFormData({...formData, age: e.target.value})}
-                placeholder="Ex: 25"
+                placeholder="যেমন: ২৫"
                 className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none transition-all"
               />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <Calendar size={12} /> Date of Birth
+                <Calendar size={12} /> {t.dob}
               </label>
               <input 
                 type="date"
@@ -170,48 +170,48 @@ const KYC: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <Phone size={12} /> Phone Number
+              <Phone size={12} /> {t.phone}
             </label>
             <input 
               type="tel"
               required
               value={formData.phone}
               onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              placeholder="01XXXXXXXXX"
+              placeholder="০১XXXXXXXXX"
               className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none transition-all"
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <Briefcase size={12} /> Profession
+              <Briefcase size={12} /> {t.profession}
             </label>
             <input 
               type="text"
               required
               value={formData.profession}
               onChange={(e) => setFormData({...formData, profession: e.target.value})}
-              placeholder="Ex: Student, Teacher, etc."
+              placeholder="যেমন: ছাত্র, শিক্ষক, ইত্যাদি"
               className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 outline-none transition-all"
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <MapPin size={12} /> Permanent Address
+              <MapPin size={12} /> {t.address}
             </label>
             <textarea 
               required
               value={formData.address}
               onChange={(e) => setFormData({...formData, address: e.target.value})}
-              placeholder="Your full address..."
+              placeholder="আপনার বর্তমান ঠিকানা লিখুন..."
               className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm h-24 focus:border-emerald-500 outline-none transition-all resize-none"
             />
           </div>
 
           <div className="space-y-2 pt-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <Camera size={12} /> Self Photo (Optional)
+              <Camera size={12} /> {t.upload_photo}
             </label>
             <div className="relative group">
               <input 
@@ -230,7 +230,7 @@ const KYC: React.FC = () => {
                 ) : (
                   <>
                     <Camera size={32} className="text-slate-500 group-hover:text-emerald-400 transition-colors mb-2" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Click to upload photo</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">ছবি আপলোড করতে ক্লিক করুন</span>
                   </>
                 )}
               </label>
@@ -244,7 +244,7 @@ const KYC: React.FC = () => {
           className="w-full py-4 bg-gradient-primary rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-slate-950"
         >
           {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-          SUBMIT INFORMATION
+          {t.submit_info}
         </button>
       </form>
     </div>

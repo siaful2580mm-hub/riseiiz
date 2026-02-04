@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Wallet, CheckSquare, User, LayoutDashboard, Shield, MessageCircle, Languages } from 'lucide-react';
+import { Home, Wallet, CheckSquare, User, LayoutDashboard, Shield, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { supabase } from '../services/supabase.ts';
 
@@ -11,8 +11,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  const isAdminPath = location.pathname.startsWith('/admin');
-  const { profile, user, language, setLanguage, t } = useAuth();
+  const { profile, user, t } = useAuth();
   const [supportLink, setSupportLink] = useState('https://t.me/riseiipro');
 
   useEffect(() => {
@@ -38,7 +37,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
     >
       <Icon size={special ? 26 : 24} />
-      <span className={`text-[10px] font-bold uppercase tracking-wider ${language === 'bn' ? 'font-medium scale-90' : ''}`}>{label}</span>
+      <span className="text-[10px] font-bold tracking-wider font-medium scale-90">{label}</span>
     </NavLink>
   );
 
@@ -49,12 +48,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">
             Riseii Pro
           </h1>
-          <button 
-            onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')}
-            className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/10 text-[10px] font-black text-emerald-400 hover:bg-white/10 transition-all uppercase tracking-tighter"
-          >
-            <Languages size={12} /> {language === 'en' ? 'BN' : 'EN'}
-          </button>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden md:block glass-dark px-3 py-1 rounded-full border border-emerald-500/20">

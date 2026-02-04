@@ -8,7 +8,7 @@ import { ShieldCheck, Zap, CreditCard, Send, Loader2, Info, ArrowLeft, Clock } f
 import { ACTIVATION_FEE } from '../constants.tsx';
 
 const Activation: React.FC = () => {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, t } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [method, setMethod] = useState('bkash');
@@ -48,14 +48,14 @@ const Activation: React.FC = () => {
       });
 
       if (error) {
-        if (error.code === '23505') throw new Error('This Transaction ID has already been used.');
+        if (error.code === '23505') throw new Error('এই ট্রানজ্যাকশন আইডিটি ইতিমধ্যে ব্যবহার করা হয়েছে।');
         throw error;
       }
 
-      alert('Activation request submitted! Please wait for admin approval.');
+      alert('অ্যাক্টিভেশন রিকোয়েস্ট জমা দেওয়া হয়েছে! অ্যাডমিন অনুমোদনের জন্য অপেক্ষা করুন।');
       fetchPendingRequest();
     } catch (err: any) {
-      alert(err.message || 'Submission failed');
+      alert(err.message || 'সাবমিশন ব্যর্থ হয়েছে');
     } finally {
       setLoading(false);
     }
@@ -67,24 +67,24 @@ const Activation: React.FC = () => {
     return (
       <div className="space-y-6">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft size={16} /> {t.back}
         </button>
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
           <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center animate-pulse">
             <Clock className="text-amber-400" size={40} />
           </div>
-          <h2 className="text-2xl font-black">Activation Pending</h2>
+          <h2 className="text-2xl font-black">{t.activation_pending}</h2>
           <p className="text-slate-400 max-w-xs text-sm">
-            Your activation request (TrxID: {pendingReq.transaction_id}) is under review. This usually takes less than 2 hours.
+            আপনার অ্যাক্টিভেশন রিকোয়েস্ট (ট্রানজ্যাকশন আইডি: {pendingReq.transaction_id}) বর্তমানে যাচাই করা হচ্ছে। সাধারণত ২ ঘণ্টার কম সময় লাগে।
           </p>
           <GlassCard className="w-full max-w-sm mt-6 text-left space-y-2">
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Method:</span>
+              <span className="text-slate-500">পদ্ধতি:</span>
               <span className="text-white uppercase font-bold">{pendingReq.method}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Submitted:</span>
-              <span className="text-white">{new Date(pendingReq.created_at).toLocaleString()}</span>
+              <span className="text-slate-500">সময়:</span>
+              <span className="text-white">{new Date(pendingReq.created_at).toLocaleString('bn-BD')}</span>
             </div>
           </GlassCard>
         </div>
@@ -98,7 +98,7 @@ const Activation: React.FC = () => {
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
           <ArrowLeft size={20} />
         </button>
-        <h2 className="text-2xl font-black">Account Activation</h2>
+        <h2 className="text-2xl font-black">{t.activation_title}</h2>
       </div>
 
       <GlassCard className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/30">
@@ -107,8 +107,8 @@ const Activation: React.FC = () => {
             <Zap size={24} fill="currentColor" />
           </div>
           <div>
-            <h3 className="font-black text-white">Unlock Full Features</h3>
-            <p className="text-xs text-slate-400">Activate your account to start withdrawing your earnings.</p>
+            <h3 className="font-black text-white">{t.unlock_features}</h3>
+            <p className="text-xs text-slate-400">উপার্জিত টাকা উত্তোলনের জন্য আপনার অ্যাকাউন্ট সক্রিয় করুন।</p>
           </div>
         </div>
       </GlassCard>
@@ -117,17 +117,17 @@ const Activation: React.FC = () => {
         <Info className="text-blue-400 shrink-0" size={20} />
         <div className="space-y-2">
           <p className="text-xs text-blue-100/70 leading-relaxed">
-            Send ৳{ACTIVATION_FEE} to any of the numbers below using "Send Money" and paste the Transaction ID.
+            নিচের যেকোনো একটি নম্বরে "Send Money" এর মাধ্যমে ৳{ACTIVATION_FEE} পাঠিয়ে ট্রানজ্যাকশন আইডি (Transaction ID) এখানে দিন।
           </p>
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Available Methods:</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">টাকা পাঠানোর নম্বরসমূহ:</p>
             <div className="grid grid-cols-1 gap-2">
               <div className="flex justify-between bg-slate-900/50 p-2 rounded-lg border border-white/5">
-                <span className="text-xs font-bold text-pink-400">bKash (Personal)</span>
+                <span className="text-xs font-bold text-pink-400">বিকাশ (পার্সোনাল)</span>
                 <span className="text-xs font-mono">017XXXXXXXX</span>
               </div>
               <div className="flex justify-between bg-slate-900/50 p-2 rounded-lg border border-white/5">
-                <span className="text-xs font-bold text-orange-400">Nagad (Personal)</span>
+                <span className="text-xs font-bold text-orange-400">নগদ (পার্সোনাল)</span>
                 <span className="text-xs font-mono">018XXXXXXXX</span>
               </div>
             </div>
@@ -139,7 +139,7 @@ const Activation: React.FC = () => {
         <GlassCard className="space-y-4">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <CreditCard size={12} /> Payment Method
+              <CreditCard size={12} /> পেমেন্ট পদ্ধতি নির্বাচন করুন
             </label>
             <div className="grid grid-cols-3 gap-2">
               {['bkash', 'nagad', 'rocket'].map((m) => (
@@ -151,7 +151,7 @@ const Activation: React.FC = () => {
                     method === m ? 'bg-emerald-500 border-emerald-500 text-slate-950' : 'bg-slate-900 border-white/10 text-slate-400'
                   }`}
                 >
-                  {m}
+                  {m === 'bkash' ? 'বিকাশ' : m === 'nagad' ? 'নগদ' : 'রকেট'}
                 </button>
               ))}
             </div>
@@ -159,14 +159,14 @@ const Activation: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <ShieldCheck size={12} /> Transaction ID
+              <ShieldCheck size={12} /> ট্রানজ্যাকশন আইডি (Transaction ID)
             </label>
             <input
               type="text"
               required
               value={trxId}
               onChange={(e) => setTrxId(e.target.value)}
-              placeholder="Ex: 8J2K9L3M"
+              placeholder="যেমন: 8J2K9L3M"
               className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:border-emerald-500 outline-none transition-all uppercase"
             />
           </div>
@@ -178,7 +178,7 @@ const Activation: React.FC = () => {
           className="w-full py-4 bg-gradient-primary rounded-xl font-black text-sm text-slate-950 shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
           {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
-          SUBMIT FOR ACTIVATION
+          {t.submit_activation}
         </button>
       </form>
     </div>
