@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Safer Policy Creation
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON profiles;
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
 
@@ -73,6 +72,58 @@ CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (
 DROP POLICY IF EXISTS "Users can insert own submissions" ON submissions;
 CREATE POLICY "Users can insert own submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- WITHDRAWALS
+CREATE TABLE IF NOT EXISTS withdrawals (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  method TEXT NOT NULL,
+  wallet_number TEXT NOT NULL,
+  status TEXT CHECK (status IN ('pending', 'processing', 'completed', 'rejected')) DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE withdrawals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own withdrawals" ON withdrawals;
+CREATE POLICY "Users can view own withdrawals" ON withdrawals FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own withdrawals" ON withdrawals;
+CREATE POLICY "Users can insert own withdrawals" ON withdrawals FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- ACTIVATIONS
+CREATE TABLE IF NOT EXISTS activations (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  method TEXT NOT NULL,
+  transaction_id TEXT UNIQUE NOT NULL,
+  status TEXT CHECK (status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE activations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own activations" ON activations;
+CREATE POLICY "Users can view own activations" ON activations FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own activations" ON activations;
+CREATE POLICY "Users can insert own activations" ON activations FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- TRANSACTIONS
+CREATE TABLE IF NOT EXISTS transactions (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  type TEXT CHECK (type IN ('earning', 'withdraw', 'bonus', 'activation')),
+  amount NUMERIC NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own transactions" ON transactions;
+CREATE POLICY "Users can view own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
+
 -- SYSTEM SETTINGS
 CREATE TABLE IF NOT EXISTS system_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
@@ -90,17 +141,17 @@ CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USIN
 
 -- INITIAL DATA
 INSERT INTO system_settings (id, notice_text, notice_link, min_withdrawal, activation_fee)
-VALUES (1, 'Riseii Pro-তে স্বাগতম! কাজ শুরু করতে আমাদের টেলিগ্রাম গ্রুপে জয়েন করুন।', 'https://t.me/riseiipro', 250, 30)
+VALUES (1, 'Riseii Pro-তে স্বাগতম! নিয়মিত কাজ করে বড় পুরস্কার জিতুন।', 'https://t.me/riseiipro', 250, 30)
 ON CONFLICT (id) DO UPDATE SET notice_text = EXCLUDED.notice_text;
 
--- Sample tasks to ensure dashboard isn't empty
+-- Sample tasks
 INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
 VALUES 
-('আমাদের ফেসবুক পেজ লাইক করুন', 'পেজে গিয়ে লাইক দিয়ে স্ক্রিনশট দিন।', 'facebook', 5.00, 'https://facebook.com', 'image'),
-('ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', 'চ্যানেলটি সাবস্ক্রাইব করে স্ক্রিনশট দিন।', 'youtube', 10.00, 'https://youtube.com', 'image')
+('আমাদের ফেসবুক পেজ লাইক দিন', 'পেজ লাইক করে স্ক্রিনশট আপলোড করুন।', 'facebook', 5.00, 'https://facebook.com', 'image'),
+('ইউটিউব চ্যানেল সাবস্ক্রাইব', 'চ্যানেলটি সাবস্ক্রাইব করে স্ক্রিনশট দিন।', 'youtube', 10.00, 'https://youtube.com', 'image')
 ON CONFLICT DO NOTHING;
 
--- TRIGGER FOR NEW USERS
+-- TRIGGER FUNCTION FOR NEW USERS
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
@@ -126,6 +177,10 @@ BEGIN
     new_code, 
     target_referrer_id
   ) ON CONFLICT (id) DO NOTHING;
+
+  IF target_referrer_id IS NOT NULL THEN
+    UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = target_referrer_id;
+  END IF;
 
   RETURN NEW;
 END;

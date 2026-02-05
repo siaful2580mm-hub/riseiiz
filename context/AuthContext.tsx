@@ -23,16 +23,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
       
       if (error) throw error;
+
+      // Fallback: If profile missing, create one manually if we have user session
+      if (!data && user) {
+        const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+        const { data: created, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || 'Member',
+            referral_code: newCode,
+            role: user.email === 'rakibulislamrovin@gmail.com' ? 'admin' : 'user'
+          })
+          .select()
+          .single();
+        
+        if (!createError) data = created;
+      }
+
       setProfile(data);
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      console.error('Error fetching/creating profile:', err);
     }
   };
 
@@ -43,27 +62,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Failsafe: stop loading after 5 seconds no matter what
-    const timer = setTimeout(() => {
-      if (mounted) setLoading(false);
-    }, 5000);
-
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            await fetchProfile(session.user.id);
+          const u = session?.user ?? null;
+          setUser(u);
+          if (u) {
+            await fetchProfile(u.id);
           }
         }
       } catch (err) {
         console.error('Initial session check failed:', err);
       } finally {
-        if (mounted) {
-          setLoading(false);
-          clearTimeout(timer);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
@@ -71,9 +83,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (mounted) {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchProfile(session.user.id);
+        const u = session?.user ?? null;
+        setUser(u);
+        if (u) {
+          fetchProfile(u.id);
         } else {
           setProfile(null);
         }
@@ -84,9 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      clearTimeout(timer);
     };
-  }, []);
+  }, [user?.id]); // Re-run when user ID changes
 
   const signOut = async () => {
     await supabase.auth.signOut();
