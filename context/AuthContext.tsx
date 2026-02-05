@@ -23,22 +23,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
       
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return;
-      }
+      if (error) throw error;
 
-      // Fallback: If profile missing, create one manually
       if (!data && user) {
-        console.log('Profile missing, creating manually...');
+        // Fallback for missing profile
         const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-        const { data: created, error: createError } = await supabase
+        const { data: created } = await supabase
           .from('profiles')
           .insert({
             id: userId,
@@ -49,17 +45,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           })
           .select()
           .maybeSingle();
-        
-        if (!createError && created) {
-          data = created;
-        } else {
-          console.error('Manual profile creation failed:', createError);
-        }
+        setProfile(created || null);
+      } else {
+        setProfile(data);
       }
-
-      setProfile(data);
     } catch (err) {
-      console.error('Critical Auth Context Error:', err);
+      console.error('Profile fetch error:', err);
     }
   };
 
@@ -70,31 +61,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (mounted) {
-          const u = session?.user ?? null;
-          setUser(u);
-          if (u) {
-            await fetchProfile(u.id);
-          }
-        }
-      } catch (err) {
-        console.error('Initial session check failed:', err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    const init = async () => {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const u = session?.user ?? null;
+      if (mounted) setUser(u);
+      if (u) await fetchProfile(u.id);
+      if (mounted) setLoading(false);
     };
 
-    initAuth();
+    init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user ?? null;
       if (mounted) {
-        const u = session?.user ?? null;
+        setLoading(true);
         setUser(u);
         if (u) {
-          fetchProfile(u.id);
+          await fetchProfile(u.id);
         } else {
           setProfile(null);
         }
