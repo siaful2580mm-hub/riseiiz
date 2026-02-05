@@ -24,29 +24,39 @@ CREATE TABLE IF NOT EXISTS profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Ensure all profile columns exist (MIGRATION)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_age INTEGER;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_dob DATE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_address TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_phone TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_profession TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_full_name TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_id_number TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_document_url TEXT;
+
 -- SYSTEM SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS system_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   notice_text TEXT,
   notice_link TEXT,
-  global_notice TEXT, 
-  banner_ads_code TEXT,
-  min_withdrawal NUMERIC DEFAULT 250,
-  activation_fee NUMERIC DEFAULT 30,
-  is_maintenance BOOLEAN DEFAULT false,
-  require_activation BOOLEAN DEFAULT true,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- MIGRATION: Add columns if they were missing from previous versions
+-- Robust MIGRATION: Add missing columns individually
 ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS global_notice TEXT;
+ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS banner_ads_code TEXT;
+ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS min_withdrawal NUMERIC DEFAULT 250;
+ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS activation_fee NUMERIC DEFAULT 30;
 ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS is_maintenance BOOLEAN DEFAULT false;
 ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS require_activation BOOLEAN DEFAULT true;
 
--- Insert or Update default settings
+-- Default Settings (Upsert)
+-- We only insert if id=1 doesn't exist, otherwise we update columns if they are null
 INSERT INTO system_settings (id, notice_text, notice_link, global_notice, is_maintenance, require_activation)
 VALUES (1, 'Welcome to Riseii Pro!', '/notice', '<h1>Platform Rules</h1><p>Welcome to our global notice page. Please follow all instructions carefully.</p>', false, true)
 ON CONFLICT (id) DO UPDATE SET
+  notice_text = EXCLUDED.notice_text,
+  notice_link = EXCLUDED.notice_link,
   global_notice = COALESCE(system_settings.global_notice, EXCLUDED.global_notice),
   is_maintenance = COALESCE(system_settings.is_maintenance, EXCLUDED.is_maintenance),
   require_activation = COALESCE(system_settings.require_activation, EXCLUDED.require_activation);
@@ -116,17 +126,35 @@ ALTER TABLE withdrawals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
--- Select Policies
-CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
-CREATE POLICY "Settings are viewable by everyone" ON system_settings FOR SELECT USING (true);
-CREATE POLICY "Active tasks are viewable by everyone" ON tasks FOR SELECT USING (is_active = true);
-CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can view own withdrawals" ON withdrawals FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can view own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
-
--- Update/Insert Policies (Simplified for setup)
-CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Users can insert submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Admins can do anything" ON system_settings FOR ALL USING (
-  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
-);
+-- Select Policies (Using DO block to make it idempotent)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public profiles are viewable by everyone') THEN
+        CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Settings are viewable by everyone') THEN
+        CREATE POLICY "Settings are viewable by everyone" ON system_settings FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Active tasks are viewable by everyone') THEN
+        CREATE POLICY "Active tasks are viewable by everyone" ON tasks FOR SELECT USING (is_active = true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view own submissions') THEN
+        CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view own withdrawals') THEN
+        CREATE POLICY "Users can view own withdrawals" ON withdrawals FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view own transactions') THEN
+        CREATE POLICY "Users can view own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update own profile') THEN
+        CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert submissions') THEN
+        CREATE POLICY "Users can insert submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Admins can do anything') THEN
+        CREATE POLICY "Admins can do anything" ON system_settings FOR ALL USING (
+          EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+        );
+    END IF;
+END $$;
