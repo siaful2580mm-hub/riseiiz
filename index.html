@@ -1,55 +1,82 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Riseii Pro - Advanced Earning Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --bg-color: #05060f;
+        --card-bg: rgba(15, 17, 35, 0.7);
+        --neon-cyan: #00f2ff;
+        --neon-purple: #7b61ff;
+      }
       body {
         font-family: 'Inter', sans-serif;
-        background: #0f172a;
-        color: white;
+        background: var(--bg-color);
+        color: #e2e8f0;
         margin: 0;
         padding: 0;
         overflow-x: hidden;
       }
       .glass {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--card-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(0, 242, 255, 0.1);
       }
       .glass-dark {
-        background: rgba(0, 0, 0, 0.3);
+        background: rgba(0, 0, 0, 0.4);
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.03);
       }
       .bg-gradient-primary {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-purple) 100%);
+      }
+      .text-neon {
+        color: var(--neon-cyan);
+        text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
       }
       .bottom-nav-blur {
-        background: rgba(15, 23, 42, 0.8);
-        backdrop-filter: blur(16px);
+        background: rgba(5, 6, 15, 0.85);
+        backdrop-filter: blur(20px);
+      }
+      .floating-nav {
+        background: rgba(15, 17, 35, 0.85);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 30px;
       }
       ::-webkit-scrollbar {
         width: 0px;
         background: transparent;
+      }
+      .btn-glow:active {
+        transform: scale(0.96);
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+      }
+      @keyframes neonPulse {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; transform: scale(1.02); }
+      }
+      .neon-pulse {
+        animation: neonPulse 2s infinite ease-in-out;
       }
     </style>
     <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@19.0.0",
-    "react/": "https://esm.sh/react@19.0.0/",
     "react-dom": "https://esm.sh/react-dom@19.0.0",
-    "react-dom/": "https://esm.sh/react-dom@19.0.0/",
     "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.469.0?deps=react@19.0.0",
-    "react-router-dom": "https://esm.sh/react-router-dom@6.28.1?deps=react@19.0.0,react-dom@19.0.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.47.10"
+    "lucide-react": "https://esm.sh/lucide-react@0.463.0?external=react",
+    "react-router-dom": "https://esm.sh/react-router-dom@7.0.2?external=react,react-dom",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.46.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/"
   }
 }
 </script>

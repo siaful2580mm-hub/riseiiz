@@ -6,7 +6,7 @@ export const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   youtube: <Youtube className="text-red-500" />,
   facebook: <Facebook className="text-blue-500" />,
   instagram: <Instagram className="text-pink-500" />,
-  twitter: <Twitter className="text-sky-400" />,
+  twitter: <Twitter className="text-cyan-400" />,
   tiktok: <Play className="text-white fill-current" />,
   other: <Globe className="text-slate-400" />
 };
@@ -22,7 +22,7 @@ export const TRANSLATIONS = {
     tasks: "কাজসমূহ",
     wallet: "ওয়ালেট",
     profile: "প্রোফাইল",
-    admin_panel: "অ্যাডমিন প্যানেল",
+    admin_panel: "অ্যাডমিন",
     total_balance: "মোট ব্যালেন্স",
     referrals: "রেফারাল",
     active_opps: "চলমান কাজ",

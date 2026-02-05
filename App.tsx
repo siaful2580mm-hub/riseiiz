@@ -12,35 +12,28 @@ import Admin from './pages/Admin.tsx';
 import Auth from './pages/Auth.tsx';
 import KYC from './pages/KYC.tsx';
 import Activation from './pages/Activation.tsx';
-import GlassCard from './components/GlassCard.tsx';
-import { Loader2, Settings, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 
 const SetupRequired: React.FC = () => (
-  <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-    <GlassCard className="max-w-md w-full border-amber-500/30 text-center space-y-6">
+  <div className="min-h-screen bg-[#05060f] flex items-center justify-center p-6 text-white">
+    <div className="max-w-md w-full glass p-8 rounded-3xl border-amber-500/30 text-center space-y-6">
       <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto">
         <AlertTriangle className="text-amber-500" size={32} />
       </div>
       <div className="space-y-2">
-        <h2 className="text-2xl font-black">Supabase Required</h2>
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Configuration Missing</h2>
         <p className="text-slate-400 text-sm">
-          Please connect your own Supabase project to enable Authentication and the Database.
+          Please check your Supabase credentials in services/supabase.ts.
         </p>
-      </div>
-      <div className="bg-slate-900/50 p-4 rounded-xl text-left text-xs font-mono space-y-2 border border-white/5">
-        <p className="text-emerald-400">// Update services/supabase.ts</p>
-        <p>1. Create a project at supabase.com</p>
-        <p>2. Run schema.sql in SQL Editor</p>
-        <p>3. Copy URL & Anon Key to Env Vars</p>
       </div>
       <a 
         href="https://supabase.com" 
         target="_blank" 
-        className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-500 text-slate-950 rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors"
+        className="flex items-center justify-center gap-2 w-full py-4 bg-emerald-500 text-slate-950 rounded-2xl font-black text-sm hover:bg-emerald-400 transition-colors uppercase tracking-widest"
       >
-        OPEN SUPABASE <ExternalLink size={16} />
+        GO TO SUPABASE <ExternalLink size={16} />
       </a>
-    </GlassCard>
+    </div>
   </div>
 );
 
@@ -49,8 +42,11 @@ const AppContent: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-500" size={48} />
+      <div className="min-h-screen bg-[#05060f] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-[#00f2ff]" size={48} />
+          <p className="text-xs font-black uppercase tracking-widest text-[#00f2ff]/50">Loading Riseii Pro...</p>
+        </div>
       </div>
     );
   }
