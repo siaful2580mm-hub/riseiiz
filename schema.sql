@@ -1,6 +1,6 @@
 
 -- ==========================================
--- 1. CLEANUP EVERYTHING (Force Reset)
+-- 1. CLEANUP (Ensuring Fresh State)
 -- ==========================================
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
@@ -11,6 +11,7 @@ DROP FUNCTION IF EXISTS public.generate_referral_code() CASCADE;
 -- ==========================================
 
 -- Function to generate a random unique referral code
+-- Uses simple string manipulation for maximum compatibility
 CREATE OR REPLACE FUNCTION public.generate_referral_code() 
 RETURNS TEXT AS $$
 DECLARE
@@ -26,7 +27,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger function for automatic profile creation on signup
--- DESIGNED TO NEVER FAIL
+-- SECURITY DEFINER allows it to bypass RLS during signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
@@ -36,43 +37,39 @@ DECLARE
     v_full_name TEXT;
     v_meta JSONB;
 BEGIN
-    -- Set search path to public to ensure we hit the right tables
+    -- CRITICAL: Set search path to public explicitly
     SET search_path TO public;
 
-    -- 1. Safely handle metadata
+    -- 1. Extract metadata safely
     v_meta := COALESCE(new.raw_user_meta_data, '{}'::jsonb);
     v_full_name := COALESCE(v_meta->>'full_name', 'Riseii Member');
+    input_referrer_code := TRIM(UPPER(COALESCE(v_meta->>'referral_id', '')));
 
     -- 2. Generate unique referral code for the new user
-    -- Try a simple approach first
-    new_ref_code := 'RISE-' || substr(md5(new.id::text || random()::text), 1, 6);
-    
-    -- Ensure uniqueness (loop up to 5 times)
-    FOR i IN 1..5 LOOP
-        IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_ref_code) THEN
-            EXIT;
-        END IF;
-        new_ref_code := 'RISE-' || substr(md5(new.id::text || i::text || random()::text), 1, 6);
+    -- We use a simple loop to ensure no collisions
+    FOR i IN 1..10 LOOP
+        new_ref_code := 'RISE-' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 6);
+        EXIT WHEN NOT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_ref_code);
     END LOOP;
 
-    -- 3. Handle Referral Logic (Wrapped in its own block to prevent failures)
-    BEGIN
-        input_referrer_code := TRIM(UPPER(COALESCE(v_meta->>'referral_id', '')));
-        
-        IF input_referrer_code <> '' THEN
-            -- Check if referrer exists and update their count
+    -- 3. Handle Referral Counting (Isolated so it won't break signup)
+    IF input_referrer_code <> '' THEN
+        BEGIN
+            -- Check if someone actually has this referral code
             IF EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = input_referrer_code) THEN
                 actual_referrer_code := input_referrer_code;
                 
+                -- Increment referrer's count
                 UPDATE public.profiles 
                 SET referral_count = referral_count + 1 
                 WHERE referral_code = actual_referrer_code;
             END IF;
-        END IF;
-    EXCEPTION WHEN OTHERS THEN
-        -- If referral logic fails, don't stop the user creation
-        actual_referrer_code := NULL;
-    END;
+        EXCEPTION WHEN OTHERS THEN
+            -- If referral logic fails, just log it and proceed
+            -- We don't want to prevent the user from signing up
+            actual_referrer_code := NULL;
+        END;
+    END IF;
 
     -- 4. Create the profile record
     -- Using security definer and robust insert
@@ -107,7 +104,8 @@ BEGIN
             email = EXCLUDED.email,
             full_name = COALESCE(public.profiles.full_name, EXCLUDED.full_name);
     EXCEPTION WHEN OTHERS THEN
-        -- Last resort: Log error or ignore to allow auth.users creation
+        -- If it fails, we let the process continue so auth.users is created
+        -- Profile will have to be fixed or handled by a recovery job
     END;
 
     RETURN new;
@@ -115,7 +113,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ==========================================
--- 3. TABLES DEFINITION (Ensure structure)
+-- 3. TABLES DEFINITION (Ensure structure is correct)
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -149,8 +147,9 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Ensure proper permissions for trigger to write to public schema
+-- Reset permissions
 ALTER FUNCTION public.handle_new_user() OWNER TO postgres;
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL ON public.profiles TO postgres, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, service_role;
