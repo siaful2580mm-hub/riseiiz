@@ -26,13 +26,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const t = TRANSLATIONS.bn;
 
   const addLog = (msg: string) => {
-    console.log(`[AuthContext] ${msg}`);
-    setDebugInfo(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
+    const log = `${new Date().toLocaleTimeString()}: ${msg}`;
+    console.log(`[Auth] ${msg}`);
+    setDebugInfo(prev => [...prev.slice(-14), log]);
   };
 
   const fetchProfile = async (userId: string) => {
     setProfileLoading(true);
-    addLog(`Fetching profile for: ${userId}`);
+    addLog(`Fetching DB record for: ${userId}`);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -41,15 +42,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
       
       if (error) {
-        addLog(`DB Error: ${error.message}`);
+        addLog(`DB ERROR: ${error.message}`);
         return null;
       }
+      
+      if (!data) addLog("WARNING: User found in Auth but MISSING in profiles table");
+      else addLog(`Profile Loaded: ${data.email} (${data.role})`);
+      
       return data;
     } catch (err) {
-      addLog(`Fetch error: ${err}`);
+      addLog(`CRITICAL ERROR: ${err}`);
       return null;
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const handleSession = async (session: any) => {
+    const u = session?.user ?? null;
+    addLog(`Auth Status: ${u ? 'Logged In (' + u.email + ')' : 'Logged Out'}`);
+    
+    // 1. Set the user first
+    setUser(u);
+    
+    // 2. IMPORTANT: Stop the global app loading immediately 
+    // This prevents the "Wait" screen from getting stuck
+    setLoading(false);
+    
+    // 3. Background fetch the profile
+    if (u) {
+      const p = await fetchProfile(u.id);
+      setProfile(p);
+    } else {
+      setProfile(null);
     }
   };
 
@@ -60,38 +85,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const handleSession = async (session: any) => {
-    const u = session?.user ?? null;
-    addLog(`Handle Session. User: ${u ? u.email : 'Guest'}`);
-    
-    // Step 1: Immediately set user and stop global loading
-    setUser(u);
-    setLoading(false);
-    
-    // Step 2: Fetch profile in background
-    if (u) {
-      const p = await fetchProfile(u.id);
-      setProfile(p);
-      addLog(p ? "Profile Loaded" : "Profile Missing from DB");
-    } else {
-      setProfile(null);
-    }
-  };
-
   useEffect(() => {
     let mounted = true;
-    addLog("Auth Module Init");
+    addLog("Auth System Initializing...");
 
-    // Get current session
+    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (mounted) handleSession(session);
     }).catch(err => {
-      addLog(`Session Error: ${err.message}`);
+      addLog(`Session Retrieval Error: ${err.message}`);
       if (mounted) setLoading(false);
     });
 
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      addLog(`Event: ${event}`);
       if (mounted) handleSession(session);
     });
 
@@ -102,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
+    addLog("Signing out...");
     setLoading(true);
     await supabase.auth.signOut();
     setProfile(null);

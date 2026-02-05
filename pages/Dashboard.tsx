@@ -2,15 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap, UserX, RefreshCw, LogOut } from 'lucide-react';
+import { ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap, UserX, RefreshCw, LogOut, Terminal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SystemSettings, Task } from '../types.ts';
 
 const Dashboard: React.FC = () => {
-  const { profile, user, t, profileLoading, refreshProfile, signOut } = useAuth();
+  const { profile, user, t, profileLoading, refreshProfile, signOut, debugInfo } = useAuth();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [showLogs, setShowLogs] = useState(false);
 
   const isAdmin = profile?.role === 'admin' || user?.email === 'rakibulislamrovin@gmail.com';
 
@@ -31,46 +32,65 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    if (user) fetchData();
-  }, [user]);
+    if (user && profile) fetchData();
+  }, [user, profile]);
 
-  // If user exists but profile is still loading from DB
-  if (profileLoading && !profile) {
+  // If user is authenticated but profile is missing from database (common for failed referrals)
+  if (!profile && user && !profileLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <Loader2 className="animate-spin text-[#00f2ff]" size={40} />
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">আপনার প্রোফাইল লোড হচ্ছে...</p>
+      <div className="min-h-[80vh] flex flex-col items-center justify-center py-10 text-center space-y-8 px-6">
+        <div className="w-24 h-24 bg-red-500/10 rounded-[2rem] flex items-center justify-center border border-red-500/20 relative">
+          <UserX size={48} className="text-red-500" />
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping opacity-50"></div>
+        </div>
+        
+        <div className="space-y-3">
+          <h2 className="text-2xl font-black uppercase tracking-tighter">প্রোফাইল ত্রুটি!</h2>
+          <p className="text-slate-400 text-sm leading-relaxed max-w-xs mx-auto">
+            আপনার অ্যাকাউন্ট তৈরি হয়েছে কিন্তু ডাটাবেস আপনার প্রোফাইলটি রেকর্ড করতে পারেনি। এটি সাধারণত ভুল রেফারাল কোড বা সার্ভার ওভারলোডের কারণে হয়।
+          </p>
+        </div>
+
+        <div className="flex flex-col w-full gap-3 max-w-xs mx-auto">
+          <button 
+            onClick={() => refreshProfile()}
+            className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-primary rounded-2xl text-slate-950 font-black text-xs uppercase tracking-widest shadow-xl shadow-[#00f2ff]/20 active:scale-95 transition-all"
+          >
+            <RefreshCw size={18} /> পুনরায় লোড করুন
+          </button>
+          <button 
+            onClick={() => signOut()}
+            className="flex items-center justify-center gap-2 w-full py-4 bg-white/5 rounded-2xl text-slate-400 font-black text-xs uppercase tracking-widest border border-white/5 hover:bg-white/10"
+          >
+            <LogOut size={18} /> লগআউট করুন
+          </button>
+          
+          <button 
+            onClick={() => setShowLogs(!showLogs)}
+            className="text-[9px] font-black uppercase text-slate-600 tracking-[0.2em] flex items-center justify-center gap-1 mt-4"
+          >
+            <Terminal size={10} /> {showLogs ? "Logs লুকান" : "Debug Logs দেখুন"}
+          </button>
+        </div>
+
+        {showLogs && (
+          <div className="w-full bg-black/40 border border-white/5 p-4 rounded-xl font-mono text-[9px] text-emerald-500/80 text-left overflow-y-auto max-h-48 space-y-1">
+            {debugInfo.map((log, i) => <div key={i} className="border-l border-emerald-500/20 pl-2">{log}</div>)}
+          </div>
+        )}
       </div>
     );
   }
 
-  // If user is logged in but profile record is definitely missing (trigger failed)
-  if (!profile && user && !profileLoading) {
+  // Background loader inside dashboard
+  if (profileLoading && !profile) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center space-y-6 px-6">
-        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center">
-          <UserX size={40} className="text-red-500" />
+      <div className="flex flex-col items-center justify-center py-32 space-y-6">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-[#00f2ff]/10 border-t-[#00f2ff] rounded-full animate-spin"></div>
+          <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#00f2ff] animate-pulse" size={24} />
         </div>
-        <div className="space-y-2">
-          <h2 className="text-xl font-bold">প্রোফাইল তৈরি হয়নি</h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            আপনার অ্যাকাউন্ট তৈরি হয়েছে কিন্তু ড্যাশবোর্ড প্রোফাইল এখনও প্রস্তুত নয়। এটি সাধারণত প্রথমবার সাইনআপের সময় হয়।
-          </p>
-        </div>
-        <div className="flex flex-col w-full gap-3 max-w-xs">
-          <button 
-            onClick={() => refreshProfile()}
-            className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-primary rounded-xl text-slate-950 font-black text-xs uppercase tracking-widest shadow-lg shadow-[#00f2ff]/20"
-          >
-            <RefreshCw size={18} /> আবার চেষ্টা করুন
-          </button>
-          <button 
-            onClick={() => signOut()}
-            className="flex items-center justify-center gap-2 w-full py-4 bg-white/5 rounded-xl text-slate-400 font-black text-xs uppercase tracking-widest border border-white/5"
-          >
-            <LogOut size={18} /> লগআউট
-          </button>
-        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 animate-pulse">প্রোফাইল লোড হচ্ছে...</p>
       </div>
     );
   }
@@ -78,7 +98,7 @@ const Dashboard: React.FC = () => {
   if (!profile) return null;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-700">
       {isAdmin && (
         <Link to="/admin" className="block">
           <div className="bg-gradient-to-r from-[#7b61ff] to-[#00f2ff] p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-[#00f2ff]/20 active:scale-95 transition-all">
@@ -88,7 +108,7 @@ const Dashboard: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-white font-black text-lg uppercase leading-tight">এডমিন প্যানেল</h2>
-                <p className="text-white text-[10px] font-bold uppercase tracking-widest opacity-80">সিস্টেম ম্যানেজমেন্ট</p>
+                <p className="text-white text-[10px] font-bold uppercase tracking-widest opacity-80">সিস্টেম কন্ট্রোল</p>
               </div>
             </div>
             <ArrowRight className="text-white" size={20} />
@@ -108,11 +128,11 @@ const Dashboard: React.FC = () => {
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <GlassCard className="bg-gradient-to-br from-[#00f2ff]/10 to-transparent">
+        <GlassCard className="bg-gradient-to-br from-[#00f2ff]/10 to-transparent border-[#00f2ff]/20">
           <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.total_balance}</span>
           <span className="text-2xl font-black text-[#00f2ff]">৳{profile.balance.toFixed(2)}</span>
         </GlassCard>
-        <GlassCard className="bg-gradient-to-br from-[#7b61ff]/10 to-transparent">
+        <GlassCard className="bg-gradient-to-br from-[#7b61ff]/10 to-transparent border-[#7b61ff]/20">
           <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.referrals}</span>
           <span className="text-2xl font-black text-[#7b61ff]">{profile.referral_count}</span>
         </GlassCard>
