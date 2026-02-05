@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
@@ -58,7 +57,7 @@ const Auth: React.FC = () => {
         
         if (error) {
           if (error.message.includes('Database error saving new user')) {
-            throw new Error('অ্যাকাউন্ট তৈরিতে ডাটাবেস এরর হয়েছে। দয়া করে এডমিনকে জানান অথবা কিছুক্ষণ পর চেষ্টা করুন।');
+            throw new Error('সার্ভারের ডাটাবেসে সমস্যা হয়েছে। অনুগ্রহ করে অ্যাডমিনকে জানান অথবা কিছুক্ষণ পর আবার চেষ্টা করুন।');
           }
           throw error;
         }
@@ -71,9 +70,9 @@ const Auth: React.FC = () => {
     } catch (error: any) {
       console.error('Auth error:', error);
       if (error.message === 'Failed to fetch') {
-        setErrorMsg('সংযোগ ত্রুটি: সুপাবেস সার্ভারে পৌঁছানো যাচ্ছে না। আপনার ইন্টারনেট চেক করুন।');
+        setErrorMsg('ইন্টারনেট সংযোগ নেই। আপনার কানেকশন চেক করুন।');
       } else if (error.message === 'Invalid login credentials') {
-        setErrorMsg('ভুল ইমেইল অথবা পাসওয়ার্ড। আপনার কি কোনো অ্যাকাউন্ট আছে? না থাকলে সাইন আপ করুন।');
+        setErrorMsg('ভুল ইমেইল অথবা পাসওয়ার্ড।');
       } else {
         setErrorMsg(error.message);
       }
@@ -90,7 +89,7 @@ const Auth: React.FC = () => {
             {isSignUp ? t.auth_signup : t.auth_login}
           </h2>
           <p className="text-slate-400 text-xs mt-2 font-medium uppercase tracking-widest">
-            {isSignUp ? 'নতুন অ্যাকাউন্ট তৈরি করে ইনকাম শুরু করুন' : 'আপনার ড্যাশবোর্ডে প্রবেশ করতে লগইন করুন'}
+            {isSignUp ? 'নতুন অ্যাকাউন্ট তৈরি করুন' : 'লগইন করুন'}
           </p>
         </div>
 
@@ -113,7 +112,7 @@ const Auth: React.FC = () => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all"
-                  placeholder="আপনার পুরো নাম"
+                  placeholder="আপনার নাম"
                 />
               </div>
             </div>
