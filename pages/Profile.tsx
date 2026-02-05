@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { User, ShieldCheck, Mail, LogOut, Share2, Copy, Gift, ChevronRight, LayoutDashboard, Zap, Link as LinkIcon } from 'lucide-react';
+import { User, ShieldCheck, Mail, LogOut, Share2, Copy, Gift, ChevronRight, LayoutDashboard, Zap, Clock, UserPlus } from 'lucide-react';
 
 const Profile: React.FC = () => {
   const { profile, user, signOut, t } = useAuth();
@@ -39,7 +39,7 @@ const Profile: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col items-center text-center space-y-4">
         <div className="relative">
-          <div className="w-24 h-24 rounded-full border-4 border-emerald-500/20 overflow-hidden bg-slate-800 flex items-center justify-center">
+          <div className="w-24 h-24 rounded-full border-4 border-[#00f2ff]/20 overflow-hidden bg-slate-800 flex items-center justify-center">
             {profile.avatar_url ? (
               <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
             ) : (
@@ -47,7 +47,7 @@ const Profile: React.FC = () => {
             )}
           </div>
           {isAdmin && (
-            <div className="absolute bottom-0 right-0 bg-emerald-500 text-slate-950 p-1 rounded-full border-2 border-slate-950 shadow-lg animate-pulse">
+            <div className="absolute bottom-0 right-0 bg-[#00f2ff] text-slate-950 p-1 rounded-full border-2 border-slate-950 shadow-lg animate-pulse">
               <ShieldCheck size={16} />
             </div>
           )}
@@ -57,11 +57,6 @@ const Profile: React.FC = () => {
           <p className="text-slate-500 text-sm flex items-center justify-center gap-1">
             <Mail size={12} /> {profile.email}
           </p>
-          {isAdmin && (
-            <span className="inline-block mt-2 px-3 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase rounded-full border border-emerald-500/30">
-              System Administrator
-            </span>
-          )}
         </div>
       </div>
 
@@ -69,29 +64,25 @@ const Profile: React.FC = () => {
         {isAdmin && (
           <GlassCard 
             onClick={() => navigate('/admin')}
-            className="bg-gradient-to-r from-emerald-600/30 to-teal-600/30 border-emerald-400/50 border-2 shadow-emerald-500/10"
+            className="bg-gradient-to-r from-emerald-600/30 to-teal-600/30 border-emerald-400/50 border-2"
           >
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-emerald-500 text-slate-950 rounded-xl shadow-lg shadow-emerald-500/40">
+                <div className="p-3 bg-emerald-500 text-slate-950 rounded-xl">
                   <LayoutDashboard size={24} />
                 </div>
                 <div>
-                  <h3 className="font-black text-white text-lg tracking-tight uppercase">{t.admin_panel} ACCESS</h3>
-                  <p className="text-[10px] text-emerald-300 uppercase font-black tracking-widest flex items-center gap-1">
-                    <Zap size={10} fill="currentColor" /> Management Mode Active
-                  </p>
+                  <h3 className="font-black text-white text-lg tracking-tight uppercase">Admin Panel</h3>
+                  <p className="text-[10px] text-emerald-300 uppercase font-black tracking-widest">Management Access</p>
                 </div>
               </div>
-              <div className="bg-emerald-500/20 p-2 rounded-full">
-                <ChevronRight size={24} className="text-emerald-400" />
-              </div>
+              <ChevronRight className="text-emerald-400" />
             </div>
           </GlassCard>
         )}
 
-        <GlassCard className="border-blue-500/30 relative overflow-hidden">
-          <div className="flex flex-col space-y-4 relative z-10">
+        <GlassCard className="border-blue-500/30 relative">
+          <div className="flex flex-col space-y-4">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{t.ref_code}</p>
@@ -123,9 +114,9 @@ const Profile: React.FC = () => {
           
           <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center text-xs">
             <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{t.total_ref}: <b className="text-white text-sm">{profile.referral_count}</b></span>
-            <span className="text-blue-400 font-black flex items-center gap-1 uppercase text-[10px] tracking-widest">
-              {t.invite} <Share2 size={12} />
-            </span>
+            <button onClick={() => navigate('/referral-history')} className="text-blue-400 font-black flex items-center gap-1 uppercase text-[10px] tracking-widest hover:underline">
+              {t.ref_history} <Clock size={12} />
+            </button>
           </div>
         </GlassCard>
 
@@ -143,7 +134,7 @@ const Profile: React.FC = () => {
             className="w-full glass-dark p-4 rounded-2xl flex items-center justify-between hover:bg-white/5 transition-all text-left group"
           >
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20 transition-all"><ShieldCheck size={20}/></div>
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400"><ShieldCheck size={20}/></div>
               <span className="font-bold text-sm uppercase tracking-tight">{t.kyc_status}</span>
             </div>
             <div className="flex items-center gap-2">

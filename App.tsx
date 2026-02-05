@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
@@ -12,6 +13,7 @@ import Auth from './pages/Auth.tsx';
 import KYC from './pages/KYC.tsx';
 import Activation from './pages/Activation.tsx';
 import Notice from './pages/Notice.tsx';
+import ReferralHistory from './pages/ReferralHistory.tsx';
 import { Loader2, AlertTriangle, ExternalLink, Zap, Terminal, RefreshCcw, Wrench } from 'lucide-react';
 
 const SetupRequired: React.FC = () => (
@@ -46,7 +48,7 @@ const MaintenanceMode: React.FC = () => (
       <div className="space-y-2">
         <h2 className="text-2xl font-black uppercase tracking-tighter">Maintenance Mode</h2>
         <p className="text-slate-400 text-sm leading-relaxed">
-          The platform is currently undergoing scheduled maintenance to improve your experience. We will be back shortly!
+          The platform is currently undergoing scheduled maintenance. We will be back shortly!
         </p>
       </div>
       <button 
@@ -60,8 +62,7 @@ const MaintenanceMode: React.FC = () => (
 );
 
 const AppContent: React.FC = () => {
-  const { user, profile, loading, debugInfo, signOut } = useAuth();
-  const [showDebug, setShowDebug] = useState(false);
+  const { user, profile, loading, signOut } = useAuth();
   const [timedOut, setTimedOut] = useState(false);
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [checkingMaintenance, setCheckingMaintenance] = useState(true);
@@ -106,9 +107,8 @@ const AppContent: React.FC = () => {
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00f2ff]/60 animate-pulse">সংযোগ করা হচ্ছে...</p>
           </div>
           {timedOut && (
-            <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 text-center">
               <button onClick={() => window.location.reload()} className="w-full py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><RefreshCcw size={14} /> আবার চেষ্টা করুন</button>
-              <button onClick={() => setShowDebug(!showDebug)} className="w-full py-2 text-[8px] text-slate-500 font-black uppercase flex items-center justify-center gap-1"><Terminal size={10} /> Debug Log</button>
             </div>
           )}
         </div>
@@ -116,7 +116,6 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // If maintenance is on, and user is NOT admin/owner, show maintenance screen
   const isOwner = user?.email === 'rakibulislamrovin@gmail.com';
   const isAdmin = profile?.role === 'admin' || isOwner;
   
@@ -140,6 +139,7 @@ const AppContent: React.FC = () => {
           <Route path="/activation" element={<Activation />} />
           <Route path="/notice" element={<Notice />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/referral-history" element={<ReferralHistory />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

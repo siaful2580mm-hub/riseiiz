@@ -1,17 +1,17 @@
+
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap, UserX, RefreshCw, LogOut, Terminal, Info } from 'lucide-react';
+import { Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap, UserX, RefreshCw, LogOut, Info, Gift, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SystemSettings, Task } from '../types.ts';
 
 const Dashboard: React.FC = () => {
-  const { profile, user, t, profileLoading, refreshProfile, signOut, debugInfo } = useAuth();
+  const { profile, user, t, profileLoading, refreshProfile, signOut } = useAuth();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [showLogs, setShowLogs] = useState(false);
 
   const isAdmin = profile?.role === 'admin' || user?.email === 'rakibulislamrovin@gmail.com';
 
@@ -44,7 +44,7 @@ const Dashboard: React.FC = () => {
         </div>
         <div className="space-y-3">
           <h2 className="text-2xl font-black uppercase tracking-tighter">প্রোফাইল ত্রুটি!</h2>
-          <p className="text-slate-400 text-sm leading-relaxed max-w-xs mx-auto">আপনার অ্যাকাউন্ট তৈরি হয়েছে কিন্তু ডাটাবেস আপনার প্রোফাইলটি রেকর্ড করতে পারেনি। এটি সাধারণত ভুল রেফারাল কোড বা সার্ভার ওভারলোডের কারণে হয়।</p>
+          <p className="text-slate-400 text-sm leading-relaxed max-w-xs mx-auto">আপনার প্রোফাইল রেকর্ড খুঁজে পাওয়া যায়নি।</p>
         </div>
         <div className="flex flex-col w-full gap-3 max-w-xs mx-auto">
           <button onClick={() => refreshProfile()} className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-primary rounded-2xl text-slate-950 font-black text-xs uppercase tracking-widest shadow-xl shadow-[#00f2ff]/20"><RefreshCw size={18} /> পুনরায় লোড করুন</button>
@@ -61,7 +61,7 @@ const Dashboard: React.FC = () => {
           <div className="w-16 h-16 border-4 border-[#00f2ff]/10 border-t-[#00f2ff] rounded-full animate-spin"></div>
           <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#00f2ff] animate-pulse" size={24} />
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 animate-pulse">প্রোফাইল লোড হচ্ছে...</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 animate-pulse">লোড হচ্ছে...</p>
       </div>
     );
   }
@@ -70,6 +70,20 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
+      {/* Welcome Banner / SMS Style */}
+      {profile.balance === 10 && profile.referral_count === 0 && (
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-4 rounded-3xl flex items-center gap-4 shadow-xl border border-white/10">
+          <div className="bg-white/20 p-3 rounded-2xl shadow-inner">
+            <MessageCircle className="text-white" size={24} />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-white font-black text-xs uppercase tracking-widest">{t.welcome_msg}</h4>
+            <p className="text-emerald-100 text-[10px] font-bold mt-1 opacity-80">আপনার প্রথম কাজ শুরু করে আয় দ্বিগুণ করুন!</p>
+          </div>
+          <Gift className="text-white/40 animate-bounce" size={24} />
+        </div>
+      )}
+
       {isAdmin && (
         <Link to="/admin" className="block">
           <div className="bg-gradient-to-r from-[#7b61ff] to-[#00f2ff] p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-[#00f2ff]/20 active:scale-95 transition-all">
@@ -106,10 +120,15 @@ const Dashboard: React.FC = () => {
           <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.total_balance}</span>
           <span className="text-2xl font-black text-[#00f2ff]">৳{profile.balance.toFixed(2)}</span>
         </GlassCard>
-        <GlassCard className="bg-gradient-to-br from-[#7b61ff]/10 to-transparent border-[#7b61ff]/20">
-          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.referrals}</span>
-          <span className="text-2xl font-black text-[#7b61ff]">{profile.referral_count}</span>
-        </GlassCard>
+        <Link to="/referral-history" className="block">
+          <GlassCard className="bg-gradient-to-br from-[#7b61ff]/10 to-transparent border-[#7b61ff]/20 hover:border-[#7b61ff]/40 transition-all">
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.referrals}</span>
+            <div className="flex justify-between items-center">
+              <span className="text-2xl font-black text-[#7b61ff]">{profile.referral_count}</span>
+              <ArrowRight className="text-[#7b61ff]/40" size={16} />
+            </div>
+          </GlassCard>
+        </Link>
       </div>
 
       <section className="space-y-4">

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Youtube, Facebook, Instagram, Twitter, Globe, Play } from 'lucide-react';
+import { Youtube, Facebook, Instagram, Twitter, Globe, Play, UserCheck, Clock } from 'lucide-react';
 
 export const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   youtube: <Youtube className="text-red-500" />,
@@ -89,6 +89,9 @@ export const TRANSLATIONS = {
     address: "বর্তমান ঠিকানা",
     upload_photo: "আপনার ছবি আপলোড করুন",
     submit_info: "তথ্য জমা দিন",
-    signup_limit_reached: "দুঃখিত, আজকের সাইন আপের সীমা পূর্ণ হয়ে গেছে। দয়া করে আগামীকাল আবার চেষ্টা করুন।"
+    signup_limit_reached: "দুঃখিত, আজকের সাইন আপের সীমা পূর্ণ হয়ে গেছে। দয়া করে আগামীকাল আবার চেষ্টা করুন।",
+    ref_history: "রেফারাল হিস্ট্রি",
+    welcome_msg: "স্বাগতম! আমরা আপনাকে ৳১০ বোনাস দিয়েছি।",
+    no_ref_msg: "এখনও কাউকে রেফার করেননি।"
   }
 };
