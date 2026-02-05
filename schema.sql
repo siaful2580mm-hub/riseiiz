@@ -1,5 +1,79 @@
 
--- PROFILES TABLE
+-- 1. Function to generate a random referral code
+CREATE OR REPLACE FUNCTION generate_referral_code() RETURNS TEXT AS $$
+DECLARE
+  chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  result TEXT := 'RISE-';
+  i INTEGER;
+BEGIN
+  FOR i IN 1..6 LOOP
+    result := result || substr(chars, floor(random() * length(chars) + 1)::integer, 1);
+  END LOOP;
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 2. Trigger function to create a profile on signup and handle referrals
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+DECLARE
+    new_ref_code TEXT;
+    referrer_code TEXT;
+    referrer_exists BOOLEAN;
+BEGIN
+    -- Generate unique code for new user
+    new_ref_code := generate_referral_code();
+    WHILE EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_ref_code) LOOP
+        new_ref_code := generate_referral_code();
+    END LOOP;
+
+    -- Extract referral code from signup metadata
+    referrer_code := (new.raw_user_meta_data->>'referral_id');
+
+    -- If referrer exists, validate and update them
+    IF referrer_code IS NOT NULL AND referrer_code <> '' THEN
+        SELECT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = referrer_code) INTO referrer_exists;
+        
+        IF referrer_exists THEN
+            -- Increment referrer's count
+            UPDATE public.profiles 
+            SET referral_count = referral_count + 1 
+            WHERE referral_code = referrer_code;
+        ELSE
+            referrer_code := NULL; -- Invalid referral code, set to null
+        END IF;
+    END IF;
+
+    -- Create the profile
+    INSERT INTO public.profiles (
+        id, 
+        email, 
+        full_name, 
+        referral_code, 
+        referred_by,
+        balance,
+        role
+    )
+    VALUES (
+        new.id,
+        new.email,
+        COALESCE(new.raw_user_meta_data->>'full_name', 'User'),
+        new_ref_code,
+        referrer_code,
+        0,
+        'user'
+    );
+    RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. Create the trigger
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- PROFILES TABLE (Updated for clarity)
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
@@ -24,44 +98,26 @@ CREATE TABLE IF NOT EXISTS profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Ensure all profile columns exist (MIGRATION)
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_age INTEGER;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_dob DATE;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_address TEXT;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_phone TEXT;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_profession TEXT;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_full_name TEXT;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_id_number TEXT;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS kyc_document_url TEXT;
-
--- SYSTEM SETTINGS TABLE
+-- SYSTEM SETTINGS
 CREATE TABLE IF NOT EXISTS system_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   notice_text TEXT,
   notice_link TEXT,
+  global_notice TEXT,
+  banner_ads_code TEXT,
+  min_withdrawal NUMERIC DEFAULT 250,
+  activation_fee NUMERIC DEFAULT 30,
+  is_maintenance BOOLEAN DEFAULT false,
+  require_activation BOOLEAN DEFAULT true,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Robust MIGRATION: Add missing columns individually
-ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS global_notice TEXT;
-ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS banner_ads_code TEXT;
-ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS min_withdrawal NUMERIC DEFAULT 250;
-ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS activation_fee NUMERIC DEFAULT 30;
-ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS is_maintenance BOOLEAN DEFAULT false;
-ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS require_activation BOOLEAN DEFAULT true;
+-- Ensure defaults
+INSERT INTO system_settings (id, notice_text, is_maintenance, require_activation)
+VALUES (1, 'Welcome to Riseii Pro!', false, true)
+ON CONFLICT (id) DO NOTHING;
 
--- Default Settings (Upsert)
--- We only insert if id=1 doesn't exist, otherwise we update columns if they are null
-INSERT INTO system_settings (id, notice_text, notice_link, global_notice, is_maintenance, require_activation)
-VALUES (1, 'Welcome to Riseii Pro!', '/notice', '<h1>Platform Rules</h1><p>Welcome to our global notice page. Please follow all instructions carefully.</p>', false, true)
-ON CONFLICT (id) DO UPDATE SET
-  notice_text = EXCLUDED.notice_text,
-  notice_link = EXCLUDED.notice_link,
-  global_notice = COALESCE(system_settings.global_notice, EXCLUDED.global_notice),
-  is_maintenance = COALESCE(system_settings.is_maintenance, EXCLUDED.is_maintenance),
-  require_activation = COALESCE(system_settings.require_activation, EXCLUDED.require_activation);
-
--- TASKS TABLE
+-- TASKS & SUBMISSIONS
 CREATE TABLE IF NOT EXISTS tasks (
   id SERIAL PRIMARY KEY,
   title TEXT NOT NULL,
@@ -70,13 +126,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   reward_amount NUMERIC NOT NULL,
   link TEXT,
   proof_type TEXT,
-  copy_text TEXT,
-  image_url TEXT,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- SUBMISSIONS TABLE
 CREATE TABLE IF NOT EXISTS submissions (
   id SERIAL PRIMARY KEY,
   task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
@@ -86,18 +139,6 @@ CREATE TABLE IF NOT EXISTS submissions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- WITHDRAWALS TABLE
-CREATE TABLE IF NOT EXISTS withdrawals (
-  id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  amount NUMERIC NOT NULL,
-  method TEXT,
-  wallet_number TEXT,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- ACTIVATIONS TABLE
 CREATE TABLE IF NOT EXISTS activations (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -107,7 +148,6 @@ CREATE TABLE IF NOT EXISTS activations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- TRANSACTIONS TABLE
 CREATE TABLE IF NOT EXISTS transactions (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -117,44 +157,19 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- RLS POLICIES
+-- RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE withdrawals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
--- Select Policies (Using DO block to make it idempotent)
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public profiles are viewable by everyone') THEN
-        CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Settings are viewable by everyone') THEN
-        CREATE POLICY "Settings are viewable by everyone" ON system_settings FOR SELECT USING (true);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Active tasks are viewable by everyone') THEN
-        CREATE POLICY "Active tasks are viewable by everyone" ON tasks FOR SELECT USING (is_active = true);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view own submissions') THEN
-        CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view own withdrawals') THEN
-        CREATE POLICY "Users can view own withdrawals" ON withdrawals FOR SELECT USING (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view own transactions') THEN
-        CREATE POLICY "Users can view own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update own profile') THEN
-        CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert submissions') THEN
-        CREATE POLICY "Users can insert submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Admins can do anything') THEN
-        CREATE POLICY "Admins can do anything" ON system_settings FOR ALL USING (
-          EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
-        );
-    END IF;
-END $$;
+-- Policies (Simplified for setup)
+CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
+CREATE POLICY "Settings are viewable by everyone" ON system_settings FOR SELECT USING (true);
+CREATE POLICY "Tasks are viewable by everyone" ON tasks FOR SELECT USING (true);
+CREATE POLICY "Own data viewable" ON submissions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Own transactions viewable" ON transactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Allow signup" ON profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
