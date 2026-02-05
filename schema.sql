@@ -23,12 +23,11 @@ DECLARE
 BEGIN
     -- Generate unique code for new user
     new_ref_code := generate_referral_code();
-    -- Ensure uniqueness
     WHILE EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_ref_code) LOOP
         new_ref_code := generate_referral_code();
     END LOOP;
 
-    -- Extract referral code from signup metadata (sent from Auth.tsx)
+    -- Extract referral code from signup metadata
     referrer_code := (new.raw_user_meta_data->>'referral_id');
 
     -- If referrer exists, validate and update them
@@ -36,17 +35,15 @@ BEGIN
         SELECT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = referrer_code) INTO referrer_exists;
         
         IF referrer_exists THEN
-            -- Increment referrer's count
             UPDATE public.profiles 
             SET referral_count = referral_count + 1 
             WHERE referral_code = referrer_code;
         ELSE
-            -- If code is invalid, we don't link it to anyone
-            referrer_code := NULL;
+            referrer_code := NULL; 
         END IF;
     END IF;
 
-    -- Create the profile record in public.profiles
+    -- Create the profile record
     INSERT INTO public.profiles (
         id, 
         email, 
@@ -65,24 +62,24 @@ BEGIN
         referrer_code,
         0,
         'user',
-        false -- Set to true if you don't want to enforce activation
+        false
     );
     RETURN new;
 EXCEPTION WHEN OTHERS THEN
-    -- Fallback profile creation if referral logic fails for some reason
+    -- Emergency fallback to ensure user can still log in
     INSERT INTO public.profiles (id, email, full_name, referral_code, role)
     VALUES (new.id, new.email, 'User', generate_referral_code(), 'user');
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 3. Setup Trigger on auth.users
+-- 3. Setup Trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 4. TABLES SETUP
+-- 4. TABLES SETUP (Idempotent)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
@@ -120,7 +117,7 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Seed default settings
+-- Ensure settings exist
 INSERT INTO system_settings (id, notice_text, is_maintenance, require_activation)
 VALUES (1, 'Welcome to Riseii Pro!', false, true)
 ON CONFLICT (id) DO NOTHING;
@@ -174,7 +171,7 @@ CREATE TABLE IF NOT EXISTS public.withdrawals (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 5. RLS (Row Level Security)
+-- 5. RLS (Row Level Security) - Clean approach
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
@@ -183,47 +180,38 @@ ALTER TABLE activations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE withdrawals ENABLE ROW LEVEL SECURITY;
 
--- Idempotent Policy Creation using a DO block
-DO $$ 
-BEGIN
-    -- Profiles Policies
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public profiles are viewable by everyone') THEN
-        CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update own profile') THEN
-        CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow insert on signup') THEN
-        CREATE POLICY "Allow insert on signup" ON profiles FOR INSERT WITH CHECK (true);
-    END IF;
+-- Drop and Recreate Policies to avoid "already exists" errors
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
+CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
 
-    -- Settings Policies
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Settings viewable by all') THEN
-        CREATE POLICY "Settings viewable by all" ON system_settings FOR SELECT USING (true);
-    END IF;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 
-    -- Tasks Policies
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Tasks viewable by all') THEN
-        CREATE POLICY "Tasks viewable by all" ON tasks FOR SELECT USING (true);
-    END IF;
+DROP POLICY IF EXISTS "Allow insert on signup" ON profiles;
+CREATE POLICY "Allow insert on signup" ON profiles FOR INSERT WITH CHECK (true);
 
-    -- Submissions Policies
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Own submissions') THEN
-        CREATE POLICY "Own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Insert submissions') THEN
-        CREATE POLICY "Insert submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
-    END IF;
+DROP POLICY IF EXISTS "Settings viewable by all" ON system_settings;
+CREATE POLICY "Settings viewable by all" ON system_settings FOR SELECT USING (true);
 
-    -- Transactions Policies
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Own transactions') THEN
-        CREATE POLICY "Own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
-    END IF;
+DROP POLICY IF EXISTS "Tasks viewable by all" ON tasks;
+CREATE POLICY "Tasks viewable by all" ON tasks FOR SELECT USING (true);
 
-    -- Admin Policy
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Admins full access') THEN
-        CREATE POLICY "Admins full access" ON system_settings FOR ALL USING (
-          EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
-        );
-    END IF;
-END $$;
+DROP POLICY IF EXISTS "Own submissions" ON submissions;
+CREATE POLICY "Own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Insert submissions" ON submissions;
+CREATE POLICY "Insert submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Own transactions" ON transactions;
+CREATE POLICY "Own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Own withdrawals" ON withdrawals;
+CREATE POLICY "Own withdrawals" ON withdrawals FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Own activations" ON activations;
+CREATE POLICY "Own activations" ON activations FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins full access" ON system_settings;
+CREATE POLICY "Admins full access" ON system_settings FOR ALL USING (
+  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+);
