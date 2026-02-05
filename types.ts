@@ -40,6 +40,8 @@ export interface Task {
   copy_text?: string;
   image_url?: string;
   is_active: boolean;
+  // Added missing is_featured property
+  is_featured: boolean;
   created_at: string;
 }
 

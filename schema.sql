@@ -26,7 +26,7 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='system_settings' AND column_name='banner_ads_code') THEN
-        ALTER TABLE public.system_settings ADD COLUMN banner_ads_code TEXT;
+        ALTER TABLE public.system_settings ADD COLUMN banner_ads_code TEXT DEFAULT '<div style="padding: 20px; text-align: center; color: #444; border: 2px dashed #333; border-radius: 15px;">Your Ad Script Here</div>';
     END IF;
 END $$;
 
@@ -39,17 +39,24 @@ ON CONFLICT (id) DO UPDATE SET
   activation_fee = EXCLUDED.activation_fee;
 
 -- ==========================================
--- 2. PROFILE SCHEMA UPDATE
+-- 2. TASK SCHEMA UPDATE (is_featured)
 -- ==========================================
 DO $$ 
 BEGIN 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='support_uid') THEN
-        ALTER TABLE public.profiles ADD COLUMN support_uid TEXT;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='is_featured') THEN
+        ALTER TABLE public.tasks ADD COLUMN is_featured BOOLEAN DEFAULT false;
     END IF;
 END $$;
 
 -- ==========================================
--- 3. PERMISSIONS
+-- 3. SAMPLE DATA FOR FB WORK & TRUST
+-- ==========================================
+INSERT INTO public.tasks (title, description, category, reward_amount, link, proof_type, copy_text, is_active, is_featured)
+VALUES ('Facebook Post (Share Our Site)', 'আমাদের সাইট সম্পর্কে একটি পোস্ট আপনার ফেসবুক ওয়ালে শেয়ার করুন। পোস্টটি পাবলিক হতে হবে। স্ক্রিনশট প্রমান হিসেবে জমা দিন।', 'facebook', 15, 'https://riseiipro.vercel.app', 'image', 'Riseii Pro-তে কাজ করে প্রতিদিন দারুণ ইনকাম করছি! আপনারাও আজই যোগ দিন।', true, true)
+ON CONFLICT DO NOTHING;
+
+-- ==========================================
+-- 4. PERMISSIONS
 -- ==========================================
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
