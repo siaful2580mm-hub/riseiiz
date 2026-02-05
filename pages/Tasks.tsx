@@ -131,19 +131,21 @@ const Tasks: React.FC = () => {
 
   const handleDownloadImage = async (url: string) => {
     try {
+      // Force download via fetch to avoid browser just opening the image
       const response = await fetch(url);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `riseii-asset-${Date.now()}.png`;
+      link.setAttribute('download', `riseii-asset-${Date.now()}.png`);
+      link.setAttribute('target', '_blank');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("Download failed:", err);
-      // Fallback: Open in new tab
+      // Fallback
       window.open(url, '_blank');
     }
   };
@@ -244,6 +246,7 @@ const Tasks: React.FC = () => {
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4">
                    <p className="text-sm text-slate-300 leading-relaxed italic">{selectedTask.description}</p>
                    <div className="grid grid-cols-1 gap-3 pt-2">
+                      {/* ONLY SHOW LINK BUTTON IF LINK EXISTS */}
                       {selectedTask.link && (
                         <a href={selectedTask.link} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 py-4 bg-gradient-primary rounded-2xl font-black text-xs text-slate-950 uppercase tracking-widest">
                           <ExternalLink size={18} /> Visit Target Link
