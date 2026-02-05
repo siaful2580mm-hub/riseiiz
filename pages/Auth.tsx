@@ -45,8 +45,8 @@ const Auth: React.FC = () => {
           return;
         }
 
-        // Sanitize referral ID
-        const cleanReferralId = referralId.trim().toUpperCase();
+        // Sanitize referral ID - ensure it's null if empty
+        const cleanReferralId = referralId.trim().toUpperCase() || null;
 
         const { error } = await supabase.auth.signUp({ 
           email, 
