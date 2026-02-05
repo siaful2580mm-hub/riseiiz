@@ -62,7 +62,7 @@ const Profile: React.FC = () => {
       const { data: settings } = await supabase.from('system_settings').select('referral_reward').single();
       const bonus = settings?.referral_reward || 5;
 
-      // Update current user
+      // Update current user (mark as referred)
       const { error: userUpdateErr } = await supabase
         .from('profiles')
         .update({ referred_by: cleanCode })
@@ -70,13 +70,13 @@ const Profile: React.FC = () => {
       
       if (userUpdateErr) throw userUpdateErr;
 
-      // Update referrer
+      // Update referrer balance and count
       await supabase.from('profiles').update({
         balance: referrer.balance + bonus,
-        referral_count: referrer.referral_count + 1
+        referral_count: (referrer.referral_count || 0) + 1
       }).eq('id', referrer.id);
 
-      // Log transaction
+      // Log transaction for referrer
       await supabase.from('transactions').insert({
         user_id: referrer.id,
         type: 'bonus',
@@ -84,7 +84,7 @@ const Profile: React.FC = () => {
         description: `Referral bonus for inviting ${profile.email}`
       });
 
-      alert(`Referral code applied successfully! ৳${bonus} credited to your friend.`);
+      alert(`Referral code applied! ৳${bonus} has been sent to your friend.`);
       setInputRefCode('');
       refreshProfile();
     } catch (err: any) {
@@ -211,10 +211,10 @@ const Profile: React.FC = () => {
         </GlassCard>
 
         <div className="space-y-2 mt-4">
-          <button className="w-full glass-dark p-4 rounded-2xl flex items-center justify-between hover:bg-white/5 transition-all text-left">
+          <button onClick={() => navigate('/wallet')} className="w-full glass-dark p-4 rounded-2xl flex items-center justify-between hover:bg-white/5 transition-all text-left">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400"><Gift size={20}/></div>
-              <span className="font-bold text-sm uppercase tracking-tight">{t.bonuses}</span>
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400"><Zap size={20}/></div>
+              <span className="font-bold text-sm uppercase tracking-tight">Earning History</span>
             </div>
             <ChevronRight size={18} className="text-slate-600" />
           </button>
