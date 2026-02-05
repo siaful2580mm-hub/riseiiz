@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { TrendingUp, ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap, UserX, RefreshCw } from 'lucide-react';
+import { TrendingUp, ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap, UserX, RefreshCw, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SystemSettings, Task } from '../types.ts';
 
 const Dashboard: React.FC = () => {
-  const { profile, user, t, loading: authLoading, refreshProfile } = useAuth();
+  const { profile, user, t, loading: authLoading, refreshProfile, signOut } = useAuth();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,35 +32,52 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!authLoading && profile) {
+    if (!authLoading && user) {
       fetchData();
     }
-  }, [authLoading, profile]);
+  }, [authLoading, user]);
 
-  if (authLoading || (profile && loading)) {
+  if (authLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 space-y-4">
         <Loader2 className="animate-spin text-[#00f2ff]" size={40} />
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">তথ্য লোড হচ্ছে...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">অপেক্ষা করুন...</p>
       </div>
     );
   }
 
-  if (!profile) {
+  // If user is logged in but profile table entry is missing
+  if (!profile && user) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-        <UserX size={48} className="text-red-500 opacity-50" />
-        <h2 className="text-xl font-bold">প্রোফাইল পাওয়া যায়নি</h2>
-        <p className="text-slate-400 max-w-xs text-sm">আপনার অ্যাকাউন্টটি ঠিকমতো তৈরি হয়নি অথবা ইন্টারনেটে সমস্যা হচ্ছে।</p>
-        <button 
-          onClick={() => refreshProfile()}
-          className="flex items-center gap-2 px-6 py-3 bg-white/5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/10"
-        >
-          <RefreshCw size={16} /> পুনরায় চেষ্টা করুন
-        </button>
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-6 px-6">
+        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center">
+          <UserX size={40} className="text-red-500" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold">প্রোফাইল সিঙ্ক সমস্যা</h2>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            আপনার লগইন সফল হয়েছে কিন্তু প্রোফাইল তথ্য পাওয়া যাচ্ছে না। দয়া করে নিচের বাটনে ক্লিক করে প্রোফাইল রিফ্রেশ করুন অথবা লগআউট করে আবার চেষ্টা করুন।
+          </p>
+        </div>
+        <div className="flex flex-col w-full gap-3 max-w-xs">
+          <button 
+            onClick={() => refreshProfile()}
+            className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-primary rounded-xl text-slate-950 font-black text-xs uppercase tracking-widest shadow-lg shadow-[#00f2ff]/20"
+          >
+            <RefreshCw size={18} /> প্রোফাইল রিফ্রেশ করুন
+          </button>
+          <button 
+            onClick={() => signOut()}
+            className="flex items-center justify-center gap-2 w-full py-4 bg-white/5 rounded-xl text-slate-400 font-black text-xs uppercase tracking-widest border border-white/5"
+          >
+            <LogOut size={18} /> লগআউট করুন
+          </button>
+        </div>
       </div>
     );
   }
+
+  if (!profile) return null;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

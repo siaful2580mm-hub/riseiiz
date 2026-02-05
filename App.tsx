@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
@@ -49,7 +48,7 @@ const AppContent: React.FC = () => {
           </div>
           <div className="space-y-1 text-center">
             <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent">RISEII PRO</h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00f2ff]/40">অপেক্ষা করুন...</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00f2ff]/40 animate-pulse">সার্ভার সংযোগ হচ্ছে...</p>
           </div>
         </div>
       </div>
