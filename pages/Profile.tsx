@@ -1,13 +1,16 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
+import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { User, ShieldCheck, Mail, LogOut, Share2, Copy, Gift, ChevronRight, LayoutDashboard, Zap, Clock, UserPlus } from 'lucide-react';
+import { User, ShieldCheck, Mail, LogOut, Copy, Gift, ChevronRight, LayoutDashboard, Zap, Clock, Send, Loader2 } from 'lucide-react';
 
 const Profile: React.FC = () => {
-  const { profile, user, signOut, t } = useAuth();
+  const { profile, user, signOut, refreshProfile, t } = useAuth();
   const navigate = useNavigate();
+  const [inputRefCode, setInputRefCode] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
 
   const isOwner = user?.email === 'rakibulislamrovin@gmail.com';
   const isAdmin = profile?.role === 'admin' || isOwner;
@@ -30,6 +33,64 @@ const Profile: React.FC = () => {
       const link = `${window.location.origin}/auth?ref=${profile.referral_code}`;
       navigator.clipboard.writeText(link);
       alert('Referral link copied!');
+    }
+  };
+
+  const handleApplyReferral = async () => {
+    if (!profile || !inputRefCode || isApplying) return;
+    const cleanCode = inputRefCode.trim().toUpperCase();
+    
+    if (cleanCode === profile.referral_code) {
+      alert("You cannot use your own referral code.");
+      return;
+    }
+
+    setIsApplying(true);
+    try {
+      // Find the referrer
+      const { data: referrer, error: refError } = await supabase
+        .from('profiles')
+        .select('id, balance, referral_count')
+        .eq('referral_code', cleanCode)
+        .single();
+
+      if (refError || !referrer) {
+        throw new Error("Invalid referral code.");
+      }
+
+      // Fetch reward amount
+      const { data: settings } = await supabase.from('system_settings').select('referral_reward').single();
+      const bonus = settings?.referral_reward || 5;
+
+      // Update current user
+      const { error: userUpdateErr } = await supabase
+        .from('profiles')
+        .update({ referred_by: cleanCode })
+        .eq('id', profile.id);
+      
+      if (userUpdateErr) throw userUpdateErr;
+
+      // Update referrer
+      await supabase.from('profiles').update({
+        balance: referrer.balance + bonus,
+        referral_count: referrer.referral_count + 1
+      }).eq('id', referrer.id);
+
+      // Log transaction
+      await supabase.from('transactions').insert({
+        user_id: referrer.id,
+        type: 'bonus',
+        amount: bonus,
+        description: `Referral bonus for inviting ${profile.email}`
+      });
+
+      alert(`Referral code applied successfully! ৳${bonus} credited to your friend.`);
+      setInputRefCode('');
+      refreshProfile();
+    } catch (err: any) {
+      alert(err.message || "Failed to apply referral code.");
+    } finally {
+      setIsApplying(false);
     }
   };
 
@@ -77,6 +138,35 @@ const Profile: React.FC = () => {
                 </div>
               </div>
               <ChevronRight className="text-emerald-400" />
+            </div>
+          </GlassCard>
+        )}
+
+        {/* Enter Referral Code Section - Only show if not referred yet */}
+        {!profile.referred_by && (
+          <GlassCard className="border-amber-500/30 bg-amber-500/5 space-y-4">
+            <div className="flex items-center gap-3">
+              <Gift className="text-amber-400" size={24} />
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-tight">Claim Referral Bonus</h3>
+                <p className="text-[10px] text-slate-400">আপনার বন্ধুর রেফারেল কোড দিন এবং তাকে ৫ টাকা বোনাস দিন।</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={inputRefCode} 
+                onChange={(e) => setInputRefCode(e.target.value)} 
+                className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm font-mono uppercase focus:border-amber-400 outline-none" 
+                placeholder="RP-XXXXXX" 
+              />
+              <button 
+                onClick={handleApplyReferral}
+                disabled={isApplying || !inputRefCode}
+                className="bg-amber-500 text-slate-950 px-4 py-2 rounded-xl font-black text-xs uppercase flex items-center gap-2 active:scale-95 disabled:opacity-50 transition-all"
+              >
+                {isApplying ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />} Apply
+              </button>
             </div>
           </GlassCard>
         )}

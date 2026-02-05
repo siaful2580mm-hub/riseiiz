@@ -5,9 +5,8 @@ import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
 import { CATEGORY_ICONS } from '../constants.tsx';
 import { 
-  ExternalLink, Send, CheckCircle2, Loader2, Copy, Download, 
-  Camera, Info, ListChecks, Clock, AlertTriangle, History, 
-  Zap, Upload, Facebook, ShieldCheck, Star, Trash2, ChevronRight, FileDown 
+  ExternalLink, Send, CheckCircle2, Loader2, Copy, 
+  Camera, Info, ListChecks, Clock, Zap, Upload, Facebook, ShieldCheck, Star, Trash2, ChevronRight, FileDown 
 } from 'lucide-react';
 import { Task, TaskCategory, SubmissionStatus, SystemSettings } from '../types.ts';
 
@@ -156,6 +155,24 @@ const Tasks: React.FC = () => {
     return data.data.url;
   };
 
+  const handleDownloadImage = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `riseii-asset-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Download failed:", err);
+      window.open(url, '_blank');
+    }
+  };
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#00f2ff]" /></div>;
 
   return (
@@ -182,14 +199,6 @@ const Tasks: React.FC = () => {
         </div>
       </div>
 
-      {/* Sponsored Ad Placeholder */}
-      {settings?.banner_ads_code && activeTab === 'available' && (
-         <div className="glass-dark border-amber-500/20 rounded-2xl p-4 overflow-hidden relative">
-            <span className="absolute top-2 right-4 text-[7px] font-black uppercase text-amber-500/40 tracking-widest">Sponsored</span>
-            <div className="flex justify-center" dangerouslySetInnerHTML={{ __html: settings.banner_ads_code }} />
-         </div>
-      )}
-
       <div className="grid grid-cols-1 gap-4">
         {filteredAndSortedTasks.length === 0 ? (
            <div className="text-center py-20 glass rounded-3xl border-dashed border-white/5 space-y-4">
@@ -209,7 +218,6 @@ const Tasks: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <h3 className="font-black text-base text-white">{task.title}</h3>
                         {task.is_featured && <Star size={12} className="text-amber-500 fill-current" />}
-                        {task.category === 'facebook' && <div className="px-1.5 py-0.5 bg-[#1877F2]/20 text-[#1877F2] rounded text-[8px] font-black uppercase tracking-widest">FB WORK</div>}
                       </div>
                       <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{task.category}</span>
                     </div>
@@ -221,10 +229,10 @@ const Tasks: React.FC = () => {
                       onClick={() => setSelectedTask(task)}
                       className="flex-1 py-2.5 bg-slate-900 border border-white/5 rounded-xl text-[10px] font-black uppercase hover:bg-white/5 transition-all flex items-center justify-center gap-2"
                     >
-                      {activeTab === 'submitted' ? <History size={12} /> : <Zap size={12} />}
+                      {activeTab === 'submitted' ? <Clock size={12} /> : <Zap size={12} />}
                       {activeTab === 'submitted' ? 'View Details' : 'Launch Task'}
                     </button>
-                    {task.category === 'facebook' && activeTab === 'available' && (
+                    {task.link && activeTab === 'available' && (
                        <button onClick={() => { window.open(task.link, '_blank'); }} className="p-2.5 bg-[#1877F2]/10 text-[#1877F2] border border-[#1877F2]/20 rounded-xl">
                           <Facebook size={18} />
                        </button>
@@ -237,7 +245,6 @@ const Tasks: React.FC = () => {
         )}
       </div>
 
-      {/* Specialized Task Panel Modal */}
       {selectedTask && (
         <div className="fixed inset-0 z-[100] bg-slate-950/98 backdrop-blur-xl flex items-end sm:items-center justify-center p-4">
           <div className="glass w-full max-w-md rounded-[2.5rem] overflow-hidden animate-in slide-in-from-bottom duration-300 border-white/10 shadow-3xl">
@@ -260,7 +267,6 @@ const Tasks: React.FC = () => {
                 <Zap size={40} className="text-emerald-400 opacity-20 z-0" />
               </div>
 
-              {/* Task Guide & Instructions */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-slate-500">
                   <ListChecks size={16} />
@@ -270,28 +276,19 @@ const Tasks: React.FC = () => {
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4">
                    <p className="text-sm text-slate-300 leading-relaxed italic">{selectedTask.description}</p>
                    
-                   {/* Specific Facebook Tutorial */}
-                   {selectedTask.category === 'facebook' && (
-                     <div className="bg-[#1877F2]/10 border border-[#1877F2]/20 rounded-2xl p-4 flex gap-3">
-                        <ShieldCheck className="text-[#1877F2] shrink-0" size={20} />
-                        <div className="space-y-1">
-                           <p className="text-[10px] font-black text-[#1877F2] uppercase">FB Submission Rules</p>
-                           <p className="text-[11px] text-slate-400">১. পোস্ট অবশ্যই <b>Public</b> হতে হবে।<br/>২. আপনার নাম ও প্রোফাইল ছবি স্পষ্ট থাকতে হবে।</p>
-                        </div>
-                     </div>
-                   )}
-
                    <div className="grid grid-cols-1 gap-3 pt-2">
-                      <a href={selectedTask.link} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 py-4 bg-gradient-primary rounded-2xl font-black text-xs text-slate-950 active:scale-95 transition-all shadow-xl shadow-[#00f2ff]/20 uppercase tracking-widest">
-                        <ExternalLink size={18} /> Visit Target Link
-                      </a>
+                      {selectedTask.link && (
+                        <a href={selectedTask.link} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 py-4 bg-gradient-primary rounded-2xl font-black text-xs text-slate-950 active:scale-95 transition-all shadow-xl shadow-[#00f2ff]/20 uppercase tracking-widest">
+                          <ExternalLink size={18} /> Visit Target Link
+                        </a>
+                      )}
                       {selectedTask.copy_text && (
                         <button onClick={() => { navigator.clipboard.writeText(selectedTask.copy_text!); alert('Caption copied!'); }} className="flex items-center justify-center gap-3 py-4 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl font-black text-xs text-indigo-400 active:scale-95 transition-all uppercase tracking-widest">
                           <Copy size={18} /> {t.copy_caption}
                         </button>
                       )}
-                      {selectedTask.category === 'facebook' && (
-                        <button className="flex items-center justify-center gap-3 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-xs text-slate-300 active:scale-95 transition-all uppercase tracking-widest">
+                      {selectedTask.image_url && (
+                        <button onClick={() => handleDownloadImage(selectedTask.image_url!)} className="flex items-center justify-center gap-3 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-xs text-slate-300 active:scale-95 transition-all uppercase tracking-widest">
                           <FileDown size={18} /> Download Asset Image
                         </button>
                       )}
@@ -299,7 +296,6 @@ const Tasks: React.FC = () => {
                 </div>
               </div>
 
-              {/* Submission Form */}
               {activeTab === 'available' ? (
                 <form onSubmit={handleSubmit} className="pt-6 border-t border-white/5 space-y-5">
                   <div className="space-y-3">

@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle, Gift } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle } from 'lucide-react';
 import { TRANSLATIONS, DAILY_SIGNUP_LIMIT } from '../constants.tsx';
 
 const Auth: React.FC = () => {
@@ -11,20 +11,8 @@ const Auth: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [referralId, setReferralId] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Capture referral code from URL if present
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    if (ref) {
-      const cleanRef = ref.trim().toUpperCase();
-      setReferralId(cleanRef);
-      setIsSignUp(true); // Default to sign up if ref link used
-    }
-  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,22 +33,19 @@ const Auth: React.FC = () => {
           return;
         }
 
-        const cleanRef = referralId.trim().toUpperCase() || null;
-
-        // CRITICAL: Send metadata that matches the SQL trigger expectations
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
             data: { 
               full_name: fullName.trim(),
-              referred_by: cleanRef
+              referred_by: null // Referral logic moved to post-auth
             }
           }
         });
         
         if (error) throw error;
-        alert('অ্যাকাউন্ট তৈরি হয়েছে! দয়া করে ইমেইল ভেরিফাই করুন অথবা লগইন ট্রাই করুন। যদি ইমেইল না পান তবে স্প্যাম ফোল্ডার চেক করুন।');
+        alert('অ্যাকাউন্ট তৈরি হয়েছে! দয়া করে ইমেইল ভেরিফাই করুন অথবা লগইন করুন।');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -118,22 +103,6 @@ const Auth: React.FC = () => {
               <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all" placeholder="••••••••" />
             </div>
           </div>
-
-          {isSignUp && (
-             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">রেফারেল কোড (ঐচ্ছিক)</label>
-              <div className="relative">
-                <Gift className="absolute left-4 top-1/2 -translate-y-1/2 text-[#00f2ff]/30" size={18} />
-                <input 
-                  type="text" 
-                  value={referralId} 
-                  onChange={(e) => setReferralId(e.target.value)} 
-                  className="w-full bg-black/40 border border-[#00f2ff]/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all font-mono uppercase" 
-                  placeholder="যেমন: RP-8B2A9C" 
-                />
-              </div>
-            </div>
-          )}
 
           <button type="submit" disabled={loading} className="w-full py-4 bg-gradient-primary rounded-2xl font-black text-sm shadow-lg shadow-[#00f2ff]/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all text-[#05060f] uppercase tracking-widest mt-4">
             {loading ? <Loader2 className="animate-spin" size={20} /> : <ArrowRight size={20} />}

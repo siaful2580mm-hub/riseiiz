@@ -12,10 +12,11 @@ import {
 import { Submission, Task, Profile, SystemSettings, Withdrawal } from '../types.ts';
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'withdrawals' | 'tasks' | 'users' | 'settings'>('submissions');
+  const [activeTab, setActiveTab] = useState<'submissions' | 'withdrawals' | 'tasks' | 'users' | 'settings' | 'kyc'>('submissions');
   const [subFilter, setSubFilter] = useState<'pending' | 'processed'>('pending');
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [kycRequests, setKycRequests] = useState<Profile[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [settings, setSettings] = useState<any | null>(null);
@@ -26,7 +27,7 @@ const Admin: React.FC = () => {
 
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({
-    title: '', description: '', category: 'facebook', reward_amount: 10, link: '', proof_type: 'image', is_active: true, is_featured: false
+    title: '', description: '', category: 'facebook', reward_amount: 10, link: '', proof_type: 'image', is_active: true, is_featured: false, copy_text: '', image_url: ''
   });
 
   useEffect(() => {
@@ -71,6 +72,10 @@ const Admin: React.FC = () => {
         const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100);
         if (error) throw error;
         setUsers(data || []);
+      } else if (activeTab === 'kyc') {
+        const { data, error } = await supabase.from('profiles').select('*').eq('kyc_status', 'pending').order('created_at', { ascending: false });
+        if (error) throw error;
+        setKycRequests(data || []);
       } else if (activeTab === 'settings') {
         const { data, error } = await supabase.from('system_settings').select('*').eq('id', 1).maybeSingle();
         if (error) throw error;
@@ -89,6 +94,7 @@ const Admin: React.FC = () => {
       if (error) throw error;
       alert('Task added successfully!');
       setShowAddTask(false);
+      setNewTask({ title: '', description: '', category: 'facebook', reward_amount: 10, link: '', proof_type: 'image', is_active: true, is_featured: false, copy_text: '', image_url: '' });
       fetchData();
     } catch (e: any) { alert(e.message); }
   };
@@ -110,11 +116,36 @@ const Admin: React.FC = () => {
     finally { setIsUpdatingSettings(false); }
   };
 
+  const handleWithdrawalStatus = async (id: number, userId: string, amount: number, status: 'completed' | 'rejected') => {
+    try {
+      const { error } = await supabase.from('withdrawals').update({ status }).eq('id', id);
+      if (error) throw error;
+
+      if (status === 'rejected') {
+        // Refund balance if rejected
+        const { data: p } = await supabase.from('profiles').select('balance').eq('id', userId).single();
+        await supabase.from('profiles').update({ balance: (p?.balance || 0) + amount }).eq('id', userId);
+        await supabase.from('transactions').insert({ user_id: userId, type: 'bonus', amount, description: 'Refund: Rejected withdrawal' });
+      }
+
+      fetchData();
+      fetchAdminStats();
+    } catch (err: any) { alert(err.message); }
+  };
+
+  const handleKYCStatus = async (id: string, status: 'verified' | 'none') => {
+    try {
+      const { error } = await supabase.from('profiles').update({ kyc_status: status }).eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err: any) { alert(err.message); }
+  };
+
   return (
     <div className="space-y-6 pb-32">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent uppercase">Admin Pannel</h2>
+          <h2 className="text-2xl font-black bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent uppercase">Admin Control</h2>
           <button onClick={() => fetchData()} className="p-2 bg-white/5 rounded-xl text-[#00f2ff]"><RefreshCw size={20} /></button>
         </div>
 
@@ -124,11 +155,11 @@ const Admin: React.FC = () => {
               <p className="text-xl font-black text-white">{adminStats.totalUsers}</p>
            </div>
            <div className="glass-dark border-amber-500/20 p-4 rounded-2xl">
-              <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Pending Subs</p>
+              <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Submissions</p>
               <p className="text-xl font-black text-amber-500">{adminStats.pendingSubmissions}</p>
            </div>
            <div className="glass-dark border-emerald-500/20 p-4 rounded-2xl">
-              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Pending With</p>
+              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Withdrawals</p>
               <p className="text-xl font-black text-emerald-500">{adminStats.pendingWithdrawals}</p>
            </div>
            <div className="glass-dark border-blue-500/20 p-4 rounded-2xl">
@@ -137,8 +168,8 @@ const Admin: React.FC = () => {
            </div>
         </div>
         
-        <div className="flex gap-2 glass-dark rounded-2xl p-2 overflow-x-auto border-white/5">
-          {(['submissions', 'withdrawals', 'tasks', 'users', 'settings'] as const).map((tab) => (
+        <div className="flex gap-2 glass-dark rounded-2xl p-2 overflow-x-auto border-white/5 scrollbar-hide">
+          {(['submissions', 'withdrawals', 'kyc', 'tasks', 'users', 'settings'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${activeTab === tab ? 'bg-gradient-primary text-slate-950 shadow-lg' : 'text-slate-500'}`}>
               {tab}
             </button>
@@ -161,12 +192,16 @@ const Admin: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-sm font-black text-white">{sub.task?.title}</p>
-                      <p className="text-[10px] text-slate-500">By: {(sub as any).user?.full_name}</p>
+                      <p className="text-[10px] text-slate-500">User: {(sub as any).user?.full_name}</p>
                     </div>
                     <span className="text-emerald-400 font-black">৳{sub.task?.reward_amount}</span>
                   </div>
-                  <div className="bg-black/40 rounded-xl overflow-hidden">
-                    <img src={sub.proof_data} className="w-full max-h-48 object-contain" />
+                  <div className="bg-black/40 rounded-xl overflow-hidden min-h-[100px] flex items-center justify-center">
+                    {sub.proof_data?.startsWith('http') ? (
+                       <img src={sub.proof_data} className="w-full max-h-60 object-contain" />
+                    ) : (
+                       <p className="text-xs p-4 break-all text-slate-400">{sub.proof_data}</p>
+                    )}
                   </div>
                   {sub.status === 'pending' && (
                     <div className="flex gap-2">
@@ -190,6 +225,62 @@ const Admin: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'withdrawals' && (
+            <div className="space-y-4">
+              {withdrawals.length === 0 ? <p className="text-center text-slate-500 py-10">No withdrawals found.</p> :
+              withdrawals.map(w => (
+                <GlassCard key={w.id} className="space-y-4">
+                   <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-black text-white">৳{w.amount}</p>
+                        <p className="text-[10px] text-slate-500 uppercase">{w.method} • {w.wallet_number}</p>
+                        <p className="text-[10px] text-slate-500">User: {w.user?.full_name} ({w.user?.email})</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-[8px] font-black uppercase ${
+                        w.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 
+                        w.status === 'pending' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'
+                      }`}>{w.status}</span>
+                   </div>
+                   {w.status === 'pending' && (
+                     <div className="flex gap-2">
+                       <button onClick={() => handleWithdrawalStatus(w.id, w.user_id, w.amount, 'completed')} className="flex-1 py-2 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-lg">MARK PAID</button>
+                       <button onClick={() => handleWithdrawalStatus(w.id, w.user_id, w.amount, 'rejected')} className="flex-1 py-2 bg-red-500/20 text-red-400 font-black text-[10px] rounded-lg">REJECT</button>
+                     </div>
+                   )}
+                </GlassCard>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'kyc' && (
+            <div className="space-y-4">
+              {kycRequests.length === 0 ? <p className="text-center text-slate-500 py-10">No pending KYC requests.</p> :
+              kycRequests.map(k => (
+                <GlassCard key={k.id} className="space-y-4">
+                   <div className="flex justify-between">
+                     <div>
+                       <p className="font-black text-white">{k.kyc_full_name}</p>
+                       <p className="text-[10px] text-slate-500">{k.email} • {k.kyc_phone}</p>
+                     </div>
+                     <span className="text-[8px] font-black uppercase px-2 py-1 bg-amber-500/10 text-amber-500 rounded">Pending</span>
+                   </div>
+                   <div className="bg-white/5 rounded-xl p-3 text-[10px] space-y-1">
+                      <p><b>Address:</b> {k.kyc_address}</p>
+                      <p><b>Profession:</b> {k.kyc_profession}</p>
+                      <p><b>Age:</b> {k.kyc_age} • <b>DOB:</b> {k.kyc_dob}</p>
+                   </div>
+                   {k.kyc_document_url && (
+                     <img src={k.kyc_document_url} className="w-full rounded-xl border border-white/5" alt="KYC Doc" />
+                   )}
+                   <div className="flex gap-2">
+                      <button onClick={() => handleKYCStatus(k.id, 'verified')} className="flex-1 py-2 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-lg">APPROVE</button>
+                      <button onClick={() => handleKYCStatus(k.id, 'none')} className="flex-1 py-2 bg-red-500/20 text-red-400 font-black text-[10px] rounded-lg">REJECT</button>
+                   </div>
+                </GlassCard>
+              ))}
+            </div>
+          )}
+
           {activeTab === 'tasks' && (
             <div className="space-y-4">
               <button onClick={() => setShowAddTask(true)} className="w-full py-3 bg-gradient-primary text-slate-950 font-black rounded-xl text-xs uppercase">+ Create New Task</button>
@@ -199,32 +290,61 @@ const Admin: React.FC = () => {
                     <p className="font-bold text-sm">{t.title}</p>
                     <p className="text-[10px] text-slate-500 uppercase">{t.category} • ৳{t.reward_amount}</p>
                   </div>
-                  <button onClick={() => handleDeleteTask(t.id)} className="p-2 text-red-500"><Trash2 size={18} /></button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleDeleteTask(t.id)} className="p-2 text-red-500"><Trash2 size={18} /></button>
+                  </div>
                 </GlassCard>
               ))}
               
               {showAddTask && (
                 <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4">
-                  <div className="glass w-full max-w-md p-6 rounded-[2rem] space-y-4">
+                  <div className="glass w-full max-w-md p-6 rounded-[2rem] space-y-4 max-h-[90vh] overflow-y-auto scrollbar-hide">
                     <div className="flex justify-between">
                        <h3 className="font-black text-white">Add New Task</h3>
                        <button onClick={() => setShowAddTask(false)}><X /></button>
                     </div>
                     <input placeholder="Task Title" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none" />
-                    <textarea placeholder="Description" value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none" />
+                    <textarea placeholder="Description" value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none h-24" />
                     <div className="grid grid-cols-2 gap-2">
                        <input placeholder="Reward (৳)" type="number" value={newTask.reward_amount} onChange={e => setNewTask({...newTask, reward_amount: parseFloat(e.target.value)})} className="bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none" />
                        <select value={newTask.category} onChange={e => setNewTask({...newTask, category: e.target.value as any})} className="bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none">
                           <option value="facebook">Facebook</option>
                           <option value="youtube">YouTube</option>
                           <option value="tiktok">TikTok</option>
+                          <option value="other">Other</option>
                        </select>
                     </div>
-                    <input placeholder="Task Link" value={newTask.link} onChange={e => setNewTask({...newTask, link: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none" />
-                    <button onClick={handleAddTask} className="w-full py-4 bg-emerald-500 text-slate-950 font-black rounded-xl">SAVE TASK</button>
+                    <input placeholder="Task Link (Optional)" value={newTask.link} onChange={e => setNewTask({...newTask, link: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none" />
+                    <input placeholder="Copy Text / Caption (Optional)" value={newTask.copy_text} onChange={e => setNewTask({...newTask, copy_text: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none" />
+                    <input placeholder="Asset Image URL (Optional)" value={newTask.image_url} onChange={e => setNewTask({...newTask, image_url: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-sm border border-white/5 outline-none" />
+                    <div className="flex items-center gap-2 px-1">
+                      <input type="checkbox" checked={newTask.is_featured} onChange={e => setNewTask({...newTask, is_featured: e.target.checked})} className="w-4 h-4" id="feat" />
+                      <label htmlFor="feat" className="text-xs text-slate-400">Featured Mission</label>
+                    </div>
+                    <button onClick={handleAddTask} className="w-full py-4 bg-emerald-500 text-slate-950 font-black rounded-xl uppercase tracking-widest text-xs">SAVE TASK</button>
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="space-y-4">
+              {users.map(u => (
+                <GlassCard key={u.id} className="flex justify-between items-center">
+                   <div className="flex gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center font-black text-slate-500">{u.email[0].toUpperCase()}</div>
+                      <div>
+                         <p className="font-bold text-sm">{u.full_name || 'No Name'}</p>
+                         <p className="text-[10px] text-slate-500">{u.email}</p>
+                      </div>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-sm font-black text-emerald-400">৳{u.balance}</p>
+                      <p className="text-[10px] text-slate-500">Refs: {u.referral_count}</p>
+                   </div>
+                </GlassCard>
+              ))}
             </div>
           )}
 
@@ -252,6 +372,12 @@ const Admin: React.FC = () => {
                   <div className="space-y-1">
                       <label className="text-[10px] text-slate-500 font-black uppercase">Ticker Notice</label>
                       <input value={settings.notice_text} onChange={e => setSettings({...settings, notice_text: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-xl p-3 text-sm outline-none" />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                     <span className="text-xs text-slate-300">Maintenance Mode</span>
+                     <button onClick={() => setSettings({...settings, is_maintenance: !settings.is_maintenance})} className={`w-10 h-5 rounded-full relative ${settings.is_maintenance ? 'bg-red-500' : 'bg-slate-700'}`}>
+                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${settings.is_maintenance ? 'left-6' : 'left-1'}`}></div>
+                     </button>
                   </div>
                   <button disabled={isUpdatingSettings} onClick={handleUpdateSettings} className="w-full py-4 bg-gradient-primary rounded-xl text-slate-950 font-black text-sm uppercase">
                     {isUpdatingSettings ? 'Saving...' : 'SAVE SETTINGS'}
