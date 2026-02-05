@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
@@ -18,7 +19,7 @@ const Auth: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) {
-      setReferralId(ref.toUpperCase());
+      setReferralId(ref.trim().toUpperCase());
       setIsSignUp(true);
     }
   }, []);
@@ -44,13 +45,16 @@ const Auth: React.FC = () => {
           return;
         }
 
+        // Sanitize referral ID
+        const cleanReferralId = referralId.trim().toUpperCase();
+
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
             data: { 
-              full_name: fullName,
-              referral_id: referralId.trim().toUpperCase()
+              full_name: fullName.trim(),
+              referral_id: cleanReferralId
             }
           }
         });

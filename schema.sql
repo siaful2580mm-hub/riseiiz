@@ -1,17 +1,18 @@
 
 -- ==========================================
--- 1. CLEANUP PREVIOUS SETUP (Drop if exists)
+-- 1. CLEANUP EVERYTHING (Absolute Reset)
 -- ==========================================
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.handle_new_user();
-DROP FUNCTION IF EXISTS generate_referral_code();
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS public.generate_referral_code() CASCADE;
 
 -- ==========================================
 -- 2. CORE FUNCTIONS
 -- ==========================================
 
 -- Function to generate a random unique referral code
-CREATE OR REPLACE FUNCTION generate_referral_code() RETURNS TEXT AS $$
+CREATE OR REPLACE FUNCTION public.generate_referral_code() 
+RETURNS TEXT AS $$
 DECLARE
   chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   result TEXT := 'RISE-';
@@ -25,36 +26,42 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger function for automatic profile creation on signup
+-- Improved robustness and error handling
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
     new_ref_code TEXT;
-    referrer_code TEXT;
-    referrer_exists BOOLEAN;
+    input_referrer_code TEXT;
+    actual_referrer_code TEXT := NULL;
+    referrer_exists BOOLEAN := false;
 BEGIN
-    -- 1. Generate unique code for new user
-    new_ref_code := generate_referral_code();
-    WHILE EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_ref_code) LOOP
-        new_ref_code := generate_referral_code();
+    -- 1. Generate unique referral code for the new user
+    -- We use a loop and a retry mechanism
+    FOR i IN 1..5 LOOP
+        new_ref_code := public.generate_referral_code();
+        EXIT WHEN NOT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_ref_code);
     END LOOP;
 
-    -- 2. Extract referral code from signup metadata
-    referrer_code := (new.raw_user_meta_data->>'referral_id');
+    -- 2. Get referrer code from signup metadata
+    -- Sanitize: trim and uppercase
+    input_referrer_code := TRIM(UPPER(new.raw_user_meta_data->>'referral_id'));
 
-    -- 3. If referrer exists, validate and increment their count
-    IF referrer_code IS NOT NULL AND referrer_code <> '' THEN
-        SELECT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = referrer_code) INTO referrer_exists;
+    -- 3. If a referrer code was provided, validate it
+    IF input_referrer_code IS NOT NULL AND input_referrer_code <> '' THEN
+        SELECT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = input_referrer_code) INTO referrer_exists;
         
         IF referrer_exists THEN
+            actual_referrer_code := input_referrer_code;
+            
+            -- Increment referrer's count
             UPDATE public.profiles 
             SET referral_count = referral_count + 1 
-            WHERE referral_code = referrer_code;
-        ELSE
-            referrer_code := NULL; 
+            WHERE referral_code = actual_referrer_code;
         END IF;
     END IF;
 
-    -- 4. Create the profile record (with conflict handling)
+    -- 4. Create the profile record
+    -- We use SECURITY DEFINER to bypass RLS during signup
     INSERT INTO public.profiles (
         id, 
         email, 
@@ -63,29 +70,37 @@ BEGIN
         referred_by,
         balance,
         role,
-        is_active
+        is_active,
+        is_banned,
+        kyc_status,
+        created_at
     )
     VALUES (
         new.id,
         new.email,
-        COALESCE(new.raw_user_meta_data->>'full_name', 'User'),
+        COALESCE(new.raw_user_meta_data->>'full_name', 'Member'),
         new_ref_code,
-        referrer_code,
+        actual_referrer_code,
         0,
         'user',
-        false
+        false,
+        false,
+        'none',
+        NOW()
     )
     ON CONFLICT (id) DO NOTHING;
 
     RETURN new;
 EXCEPTION WHEN OTHERS THEN
-    -- Emergency fallback log or handling
+    -- If any error happens, WE MUST STILL RETURN 'new'
+    -- This ensures the auth.users record is created even if profiles fail
+    -- This is a failsafe to prevent the 'Database error' blocking the user
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ==========================================
--- 3. TABLES DEFINITION
+-- 3. TABLES DEFINITION (with IF NOT EXISTS)
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -186,10 +201,8 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ==========================================
--- 5. RLS & POLICIES (Absolute Reset)
+-- 5. RLS & POLICIES
 -- ==========================================
-
--- Enable RLS on all tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
@@ -198,7 +211,6 @@ ALTER TABLE public.activations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.withdrawals ENABLE ROW LEVEL SECURITY;
 
--- 5.1 Profiles Policies
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 
@@ -208,34 +220,27 @@ CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING
 DROP POLICY IF EXISTS "Allow insert on signup" ON public.profiles;
 CREATE POLICY "Allow insert on signup" ON public.profiles FOR INSERT WITH CHECK (true);
 
--- 5.2 Settings Policies
 DROP POLICY IF EXISTS "Settings viewable by all" ON public.system_settings;
 CREATE POLICY "Settings viewable by all" ON public.system_settings FOR SELECT USING (true);
 
--- 5.3 Tasks Policies
 DROP POLICY IF EXISTS "Tasks viewable by all" ON public.tasks;
 CREATE POLICY "Tasks viewable by all" ON public.tasks FOR SELECT USING (true);
 
--- 5.4 Submissions Policies
 DROP POLICY IF EXISTS "Own submissions" ON public.submissions;
 CREATE POLICY "Own submissions" ON public.submissions FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Insert submissions" ON public.submissions;
 CREATE POLICY "Insert submissions" ON public.submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- 5.5 Transactions Policies
 DROP POLICY IF EXISTS "Own transactions" ON public.transactions;
 CREATE POLICY "Own transactions" ON public.transactions FOR SELECT USING (auth.uid() = user_id);
 
--- 5.6 Withdrawals Policies
 DROP POLICY IF EXISTS "Own withdrawals" ON public.withdrawals;
 CREATE POLICY "Own withdrawals" ON public.withdrawals FOR SELECT USING (auth.uid() = user_id);
 
--- 5.7 Activations Policies
 DROP POLICY IF EXISTS "Own activations" ON public.activations;
 CREATE POLICY "Own activations" ON public.activations FOR SELECT USING (auth.uid() = user_id);
 
--- 5.8 Admin Policy
 DROP POLICY IF EXISTS "Admins full access" ON public.system_settings;
 CREATE POLICY "Admins full access" ON public.system_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM public.profiles WHERE public.profiles.id = auth.uid() AND public.profiles.role = 'admin')
