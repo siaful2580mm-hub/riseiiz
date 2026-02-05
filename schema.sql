@@ -42,7 +42,7 @@ CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.
 DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
 CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
--- TRIGGER FUNCTION (Resilient Version)
+-- TRIGGER FUNCTION (Corrected Syntax)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
@@ -80,9 +80,9 @@ BEGIN
     BEGIN
       UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = target_referrer_id;
     EXCEPTION WHEN OTHERS THEN
-      -- Silently fail to ensure the primary user is created
+      -- Silently fail to ensure the primary user is created even if referral update fails
       NULL;
-    END IF;
+    END; -- Corrected: END instead of END IF for BEGIN block
   END IF;
 
   RETURN NEW;

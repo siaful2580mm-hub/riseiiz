@@ -46,12 +46,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
       
-      if (!data) addLog("WARNING: User found in Auth but MISSING in profiles table");
-      else addLog(`Profile Loaded: ${data.email} (${data.role})`);
+      if (!data) {
+        addLog("CRITICAL WARNING: Profile record NOT FOUND in database table!");
+      } else {
+        addLog(`Profile Loaded: ${data.email} (${data.role})`);
+      }
       
       return data;
     } catch (err) {
-      addLog(`CRITICAL ERROR: ${err}`);
+      addLog(`CRITICAL FETCH ERROR: ${err}`);
       return null;
     } finally {
       setProfileLoading(false);
@@ -62,14 +65,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const u = session?.user ?? null;
     addLog(`Auth Status: ${u ? 'Logged In (' + u.email + ')' : 'Logged Out'}`);
     
-    // 1. Set the user first
+    // 1. Immediately update user state
     setUser(u);
     
-    // 2. IMPORTANT: Stop the global app loading immediately 
-    // This prevents the "Wait" screen from getting stuck
+    // 2. Stop the global app loading immediately to allow routing
     setLoading(false);
     
-    // 3. Background fetch the profile
+    // 3. Background fetch the profile if user exists
     if (u) {
       const p = await fetchProfile(u.id);
       setProfile(p);
@@ -99,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      addLog(`Event: ${event}`);
+      addLog(`Auth Event: ${event}`);
       if (mounted) handleSession(session);
     });
 
@@ -112,10 +114,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     addLog("Signing out...");
     setLoading(true);
-    await supabase.auth.signOut();
-    setProfile(null);
-    setUser(null);
-    setLoading(false);
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setProfile(null);
+      setUser(null);
+      setLoading(false);
+    }
   };
 
   return (
