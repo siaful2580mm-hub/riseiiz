@@ -122,10 +122,11 @@ BEGIN
     IF ref_bonus IS NULL THEN ref_bonus := 5; END IF;
 
     -- 3. Extract referral code from metadata safely
-    extracted_ref_code := UPPER(TRIM(new.raw_user_meta_data->>'referred_by'));
+    -- Note: raw_user_meta_data can be accessed via ->>
+    extracted_ref_code := UPPER(TRIM(COALESCE(new.raw_user_meta_data->>'referred_by', '')));
     IF extracted_ref_code = '' THEN extracted_ref_code := NULL; END IF;
 
-    -- 4. Create the Profile First (To satisfy FK constraints in transactions)
+    -- 4. Create the Profile First
     INSERT INTO public.profiles (
         id, email, full_name, referral_code, referred_by, balance
     )
@@ -138,7 +139,7 @@ BEGIN
         10 -- Joining Bonus
     );
 
-    -- 5. If referred, process bonus
+    -- 5. If referred, process bonus for the referrer
     IF extracted_ref_code IS NOT NULL THEN
         SELECT id INTO referrer_id FROM public.profiles WHERE referral_code = extracted_ref_code;
         
@@ -157,7 +158,18 @@ BEGIN
 
     RETURN new;
 EXCEPTION WHEN OTHERS THEN
-    -- Fallback: Ensure user is created even if referral logic fails
+    -- Fallback: If anything fails, at least ensure the profile is created without referral logic
+    -- Check if profile already exists to avoid duplicate errors
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = new.id) THEN
+        INSERT INTO public.profiles (id, email, full_name, referral_code, balance)
+        VALUES (
+            new.id,
+            new.email,
+            COALESCE(new.raw_user_meta_data->>'full_name', 'Riseii Member'),
+            'RP-' || UPPER(SUBSTRING(REPLACE(gen_random_uuid()::TEXT, '-', ''), 1, 8)),
+            10
+        );
+    END IF;
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -169,27 +181,45 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ==========================================
--- 3. RLS POLICIES
+-- 3. RLS POLICIES (Idempotent)
 -- ==========================================
 
+-- Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Profiles are public" ON public.profiles;
 CREATE POLICY "Profiles are public" ON public.profiles FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
+-- Tasks
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tasks are public" ON public.tasks;
 CREATE POLICY "Tasks are public" ON public.tasks FOR SELECT USING (true);
 
+-- Submissions
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users see own submissions" ON public.submissions;
 CREATE POLICY "Users see own submissions" ON public.submissions FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can submit tasks" ON public.submissions;
 CREATE POLICY "Users can submit tasks" ON public.submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- Transactions
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users see own transactions" ON public.transactions;
 CREATE POLICY "Users see own transactions" ON public.transactions FOR SELECT USING (auth.uid() = user_id);
 
+-- System Settings
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Settings are public" ON public.system_settings;
 CREATE POLICY "Settings are public" ON public.system_settings FOR SELECT USING (true);
 
--- Admin Privileges (Service Role / Manual Override)
+-- Withdrawals
+ALTER TABLE public.withdrawals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users see own withdrawals" ON public.withdrawals;
+CREATE POLICY "Users see own withdrawals" ON public.withdrawals FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create withdrawals" ON public.withdrawals;
+CREATE POLICY "Users can create withdrawals" ON public.withdrawals FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Admin Privileges
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;
