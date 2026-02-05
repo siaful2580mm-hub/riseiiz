@@ -1,5 +1,5 @@
 
--- 1. Function to generate a random referral code
+-- 1. Helper function to generate a random referral code
 CREATE OR REPLACE FUNCTION generate_referral_code() RETURNS TEXT AS $$
 DECLARE
   chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -23,11 +23,12 @@ DECLARE
 BEGIN
     -- Generate unique code for new user
     new_ref_code := generate_referral_code();
+    -- Ensure uniqueness
     WHILE EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_ref_code) LOOP
         new_ref_code := generate_referral_code();
     END LOOP;
 
-    -- Extract referral code from signup metadata
+    -- Extract referral code from signup metadata (sent from Auth.tsx)
     referrer_code := (new.raw_user_meta_data->>'referral_id');
 
     -- If referrer exists, validate and update them
@@ -40,11 +41,12 @@ BEGIN
             SET referral_count = referral_count + 1 
             WHERE referral_code = referrer_code;
         ELSE
-            referrer_code := NULL; -- Invalid referral code, set to null
+            -- If code is invalid, we don't link it to anyone
+            referrer_code := NULL;
         END IF;
     END IF;
 
-    -- Create the profile
+    -- Create the profile record in public.profiles
     INSERT INTO public.profiles (
         id, 
         email, 
@@ -52,7 +54,8 @@ BEGIN
         referral_code, 
         referred_by,
         balance,
-        role
+        role,
+        is_active
     )
     VALUES (
         new.id,
@@ -61,20 +64,26 @@ BEGIN
         new_ref_code,
         referrer_code,
         0,
-        'user'
+        'user',
+        false -- Set to true if you don't want to enforce activation
     );
+    RETURN new;
+EXCEPTION WHEN OTHERS THEN
+    -- Fallback profile creation if referral logic fails for some reason
+    INSERT INTO public.profiles (id, email, full_name, referral_code, role)
+    VALUES (new.id, new.email, 'User', generate_referral_code(), 'user');
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 3. Create the trigger
+-- 3. Setup Trigger on auth.users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- PROFILES TABLE (Updated for clarity)
-CREATE TABLE IF NOT EXISTS profiles (
+-- 4. TABLES SETUP
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   full_name TEXT,
@@ -98,8 +107,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- SYSTEM SETTINGS
-CREATE TABLE IF NOT EXISTS system_settings (
+CREATE TABLE IF NOT EXISTS public.system_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   notice_text TEXT,
   notice_link TEXT,
@@ -112,13 +120,12 @@ CREATE TABLE IF NOT EXISTS system_settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Ensure defaults
+-- Seed default settings
 INSERT INTO system_settings (id, notice_text, is_maintenance, require_activation)
 VALUES (1, 'Welcome to Riseii Pro!', false, true)
 ON CONFLICT (id) DO NOTHING;
 
--- TASKS & SUBMISSIONS
-CREATE TABLE IF NOT EXISTS tasks (
+CREATE TABLE IF NOT EXISTS public.tasks (
   id SERIAL PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT,
@@ -130,7 +137,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS submissions (
+CREATE TABLE IF NOT EXISTS public.submissions (
   id SERIAL PRIMARY KEY,
   task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -139,7 +146,7 @@ CREATE TABLE IF NOT EXISTS submissions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS activations (
+CREATE TABLE IF NOT EXISTS public.activations (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   method TEXT,
@@ -148,7 +155,7 @@ CREATE TABLE IF NOT EXISTS activations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE IF NOT EXISTS public.transactions (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   type TEXT,
@@ -157,19 +164,66 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- RLS
+CREATE TABLE IF NOT EXISTS public.withdrawals (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  method TEXT,
+  wallet_number TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. RLS (Row Level Security)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE withdrawals ENABLE ROW LEVEL SECURITY;
 
--- Policies (Simplified for setup)
-CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
-CREATE POLICY "Settings are viewable by everyone" ON system_settings FOR SELECT USING (true);
-CREATE POLICY "Tasks are viewable by everyone" ON tasks FOR SELECT USING (true);
-CREATE POLICY "Own data viewable" ON submissions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Own transactions viewable" ON transactions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Allow signup" ON profiles FOR INSERT WITH CHECK (true);
-CREATE POLICY "Update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+-- Idempotent Policy Creation using a DO block
+DO $$ 
+BEGIN
+    -- Profiles Policies
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public profiles are viewable by everyone') THEN
+        CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update own profile') THEN
+        CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow insert on signup') THEN
+        CREATE POLICY "Allow insert on signup" ON profiles FOR INSERT WITH CHECK (true);
+    END IF;
+
+    -- Settings Policies
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Settings viewable by all') THEN
+        CREATE POLICY "Settings viewable by all" ON system_settings FOR SELECT USING (true);
+    END IF;
+
+    -- Tasks Policies
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Tasks viewable by all') THEN
+        CREATE POLICY "Tasks viewable by all" ON tasks FOR SELECT USING (true);
+    END IF;
+
+    -- Submissions Policies
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Own submissions') THEN
+        CREATE POLICY "Own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Insert submissions') THEN
+        CREATE POLICY "Insert submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+
+    -- Transactions Policies
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Own transactions') THEN
+        CREATE POLICY "Own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+
+    -- Admin Policy
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Admins full access') THEN
+        CREATE POLICY "Admins full access" ON system_settings FOR ALL USING (
+          EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+        );
+    END IF;
+END $$;
