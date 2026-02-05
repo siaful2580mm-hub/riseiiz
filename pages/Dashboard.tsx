@@ -17,10 +17,13 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: setts } = await supabase.from('system_settings').select('*').maybeSingle();
+        console.log("Fetching dashboard data...");
+        const { data: setts, error: sErr } = await supabase.from('system_settings').select('*').maybeSingle();
+        if (sErr) throw sErr;
         if (setts) setSettings(setts);
 
-        const { data: tks } = await supabase.from('tasks').select('*').eq('is_active', true).limit(5);
+        const { data: tks, error: tErr } = await supabase.from('tasks').select('*').eq('is_active', true).limit(5);
+        if (tErr) throw tErr;
         if (tks) setRecentTasks(tks);
       } catch (err) {
         console.error("Dashboard Fetch Error:", err);

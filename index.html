@@ -27,21 +27,8 @@
         -webkit-backdrop-filter: blur(16px);
         border: 1px solid rgba(0, 242, 255, 0.1);
       }
-      .glass-dark {
-        background: rgba(0, 0, 0, 0.4);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.03);
-      }
       .bg-gradient-primary {
         background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-purple) 100%);
-      }
-      .text-neon {
-        color: var(--neon-cyan);
-        text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
-      }
-      .bottom-nav-blur {
-        background: rgba(5, 6, 15, 0.85);
-        backdrop-filter: blur(20px);
       }
       .floating-nav {
         background: rgba(15, 17, 35, 0.85);
@@ -49,20 +36,16 @@
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 30px;
       }
-      ::-webkit-scrollbar {
-        width: 0px;
-        background: transparent;
-      }
-      .btn-glow:active {
-        transform: scale(0.96);
-        box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+      .neon-pulse {
+        animation: neonPulse 2s infinite ease-in-out;
       }
       @keyframes neonPulse {
         0%, 100% { opacity: 0.8; }
         50% { opacity: 1; transform: scale(1.02); }
       }
-      .neon-pulse {
-        animation: neonPulse 2s infinite ease-in-out;
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
       }
     </style>
     <script type="importmap">

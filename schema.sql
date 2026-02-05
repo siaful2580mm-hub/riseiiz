@@ -28,15 +28,12 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Public profiles are viewable by everyone.') THEN
-        CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Users can update own profile.') THEN
-        CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
-    END IF;
-END $$;
+-- Safer Policy Creation
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON profiles;
+CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can update own profile." ON profiles;
+CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- TASKS
 CREATE TABLE IF NOT EXISTS tasks (
@@ -55,12 +52,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tasks' AND policyname = 'Tasks are viewable by everyone') THEN
-        CREATE POLICY "Tasks are viewable by everyone" ON tasks FOR SELECT USING (true);
-    END IF;
-END $$;
+DROP POLICY IF EXISTS "Tasks are viewable by everyone" ON tasks;
+CREATE POLICY "Tasks are viewable by everyone" ON tasks FOR SELECT USING (true);
 
 -- SUBMISSIONS
 CREATE TABLE IF NOT EXISTS submissions (
@@ -74,15 +67,11 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'submissions' AND policyname = 'Users can view own submissions') THEN
-        CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'submissions' AND policyname = 'Users can insert own submissions') THEN
-        CREATE POLICY "Users can insert own submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
-    END IF;
-END $$;
+DROP POLICY IF EXISTS "Users can view own submissions" ON submissions;
+CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own submissions" ON submissions;
+CREATE POLICY "Users can insert own submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- SYSTEM SETTINGS
 CREATE TABLE IF NOT EXISTS system_settings (
@@ -96,25 +85,22 @@ CREATE TABLE IF NOT EXISTS system_settings (
 
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'system_settings' AND policyname = 'Settings are readable by all.') THEN
-        CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
-    END IF;
-END $$;
+DROP POLICY IF EXISTS "Settings are readable by all." ON system_settings;
+CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
 
 -- INITIAL DATA
 INSERT INTO system_settings (id, notice_text, notice_link, min_withdrawal, activation_fee)
 VALUES (1, 'Riseii Pro-তে স্বাগতম! কাজ শুরু করতে আমাদের টেলিগ্রাম গ্রুপে জয়েন করুন।', 'https://t.me/riseiipro', 250, 30)
 ON CONFLICT (id) DO UPDATE SET notice_text = EXCLUDED.notice_text;
 
+-- Sample tasks to ensure dashboard isn't empty
 INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
 VALUES 
-('ফেসবুক পেজ লাইক করুন', 'পেজে লাইক দিয়ে প্রমাণ জমা দিন।', 'facebook', 5.00, 'https://facebook.com', 'image'),
-('ইউটিউব চ্যানেল সাবস্ক্রাইব', 'চ্যানেলটি সাবস্ক্রাইব করে স্ক্রিনশট দিন।', 'youtube', 8.00, 'https://youtube.com', 'image')
+('আমাদের ফেসবুক পেজ লাইক করুন', 'পেজে গিয়ে লাইক দিয়ে স্ক্রিনশট দিন।', 'facebook', 5.00, 'https://facebook.com', 'image'),
+('ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', 'চ্যানেলটি সাবস্ক্রাইব করে স্ক্রিনশট দিন।', 'youtube', 10.00, 'https://youtube.com', 'image')
 ON CONFLICT DO NOTHING;
 
--- TRIGGER FUNCTION
+-- TRIGGER FOR NEW USERS
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
@@ -132,12 +118,14 @@ BEGIN
   END LOOP;
 
   INSERT INTO public.profiles (id, email, full_name, role, referral_code, referred_by)
-  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'full_name', 'Member'), CASE WHEN NEW.email = 'rakibulislamrovin@gmail.com' THEN 'admin' ELSE 'user' END, new_code, target_referrer_id)
-  ON CONFLICT (id) DO NOTHING;
-
-  IF target_referrer_id IS NOT NULL THEN
-    UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = target_referrer_id;
-  END IF;
+  VALUES (
+    NEW.id, 
+    NEW.email, 
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Member'), 
+    CASE WHEN NEW.email = 'rakibulislamrovin@gmail.com' THEN 'admin' ELSE 'user' END, 
+    new_code, 
+    target_referrer_id
+  ) ON CONFLICT (id) DO NOTHING;
 
   RETURN NEW;
 END;
