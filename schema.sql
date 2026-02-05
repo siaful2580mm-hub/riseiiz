@@ -1,3 +1,4 @@
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -45,6 +46,29 @@ BEGIN
     END IF;
 END $$;
 
+-- SYSTEM SETTINGS
+CREATE TABLE IF NOT EXISTS system_settings (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  notice_text TEXT,
+  notice_link TEXT,
+  banner_ads_code TEXT,
+  min_withdrawal NUMERIC DEFAULT 250,
+  activation_fee NUMERIC DEFAULT 30
+);
+
+ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'system_settings' AND policyname = 'Settings are readable by all.') THEN
+        CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
+    END IF;
+END $$;
+
+INSERT INTO system_settings (id, notice_text, min_withdrawal, activation_fee)
+VALUES (1, 'Riseii Pro-তে স্বাগতম! প্রতিদিন কাজ করে ইনকাম করুন।', 250, 30)
+ON CONFLICT (id) DO NOTHING;
+
 -- ROBUST NEW USER HANDLER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
@@ -61,13 +85,13 @@ BEGIN
     LIMIT 1;
   END IF;
 
-  -- 2. Generate Truly Unique Referral Code (Loop until unique)
+  -- 2. Generate Truly Unique Referral Code
   WHILE NOT is_unique LOOP
     new_code := upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 8));
     SELECT NOT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_code) INTO is_unique;
   END LOOP;
 
-  -- 3. Insert Profile with Conflict Handling
+  -- 3. Insert Profile
   INSERT INTO public.profiles (id, email, full_name, role, referral_code, referred_by)
   VALUES (
     NEW.id,
@@ -90,19 +114,14 @@ BEGIN
 
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- Last resort: Always return NEW so Auth doesn't fail, 
-  -- even if the trigger has an internal PG error
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Re-apply trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Ensure admin is set
-UPDATE public.profiles 
-SET role = 'admin' 
-WHERE email = 'rakibulislamrovin@gmail.com';
+-- Admin check
+UPDATE public.profiles SET role = 'admin' WHERE email = 'rakibulislamrovin@gmail.com';
