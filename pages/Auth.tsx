@@ -5,7 +5,6 @@ import GlassCard from '../components/GlassCard.tsx';
 import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle, Gift } from 'lucide-react';
 import { TRANSLATIONS, DAILY_SIGNUP_LIMIT } from '../constants.tsx';
 
-
 const Auth: React.FC = () => {
   const t = TRANSLATIONS.bn;
   const [loading, setLoading] = useState(false);
