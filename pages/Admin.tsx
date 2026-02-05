@@ -7,12 +7,12 @@ import {
   Trash2, Edit, Loader2, Eye, Plus, ExternalLink, 
   History as HistoryIcon, Filter, Zap, UserX, UserCheck, Coins, Search, AlertTriangle,
   Settings as SettingsIcon, Save, Megaphone, FileText, Wrench, ToggleRight, X, LayoutGrid, Link as LinkIcon,
-  ChevronRight, ArrowUpRight, Ban, Unlock, UserCircle, Wallet, MessageCircle, RefreshCw, Star, TrendingUp
+  ChevronRight, ArrowUpRight, Ban, Unlock, UserCircle, Wallet, MessageCircle, RefreshCw, Star, TrendingUp, DollarSign
 } from 'lucide-react';
 import { Submission, Task, Profile, TaskCategory, ProofType, SubmissionStatus, Activation, SystemSettings, Withdrawal } from '../types.ts';
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'activations' | 'withdrawals' | 'tasks' | 'users' | 'settings'>('submissions');
+  const [activeTab, setActiveTab] = useState<'submissions' | 'withdrawals' | 'tasks' | 'users' | 'settings'>('submissions');
   const [subFilter, setSubFilter] = useState<'pending' | 'processed'>('pending');
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
@@ -20,6 +20,7 @@ const Admin: React.FC = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [settings, setSettings] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   
   const [adminStats, setAdminStats] = useState({ totalUsers: 0, pendingSubmissions: 0, pendingWithdrawals: 0, totalEarnings: 0 });
 
@@ -67,7 +68,7 @@ const Admin: React.FC = () => {
         if (error) throw error;
         setTasks(data || []);
       } else if (activeTab === 'users') {
-        const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(50);
+        const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100);
         if (error) throw error;
         setUsers(data || []);
       } else if (activeTab === 'settings') {
@@ -82,38 +83,44 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleToggleFeature = async (task: Task) => {
+  const handleUpdateSettings = async () => {
+    if (!settings) return;
+    setIsUpdatingSettings(true);
     try {
-      const { error } = await supabase.from('tasks').update({ is_featured: !task.is_featured }).eq('id', task.id);
+      const { error } = await supabase.from('system_settings').update(settings).eq('id', 1);
       if (error) throw error;
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_featured: !t.is_featured } : t));
-    } catch (e: any) { alert(e.message); }
+      alert('System configuration updated successfully!');
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsUpdatingSettings(false);
+    }
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent uppercase tracking-tight">System Control</h2>
+          <h2 className="text-2xl font-black bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent uppercase tracking-tight">Admin Control</h2>
           <button onClick={() => { fetchData(); fetchAdminStats(); }} className="p-2 bg-white/5 rounded-xl text-[#00f2ff] active:rotate-180 transition-transform"><RefreshCw size={20} /></button>
         </div>
 
-        {/* Admin Stats Grid */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-           <div className="glass-dark border-white/5 p-3 rounded-2xl flex flex-col justify-center items-center">
-              <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Total Users</p>
+           <div className="glass-dark border-white/5 p-4 rounded-2xl">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Users</p>
               <p className="text-xl font-black text-white">{adminStats.totalUsers}</p>
            </div>
-           <div className="glass-dark border-amber-500/20 p-3 rounded-2xl flex flex-col justify-center items-center">
-              <p className="text-[7px] font-black text-amber-500 uppercase tracking-widest">Pending Sub</p>
+           <div className="glass-dark border-amber-500/20 p-4 rounded-2xl">
+              <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Tasks</p>
               <p className="text-xl font-black text-amber-500">{adminStats.pendingSubmissions}</p>
            </div>
-           <div className="glass-dark border-emerald-500/20 p-3 rounded-2xl flex flex-col justify-center items-center">
-              <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest">Withdraw Req</p>
+           <div className="glass-dark border-emerald-500/20 p-4 rounded-2xl">
+              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Withdrawals</p>
               <p className="text-xl font-black text-emerald-500">{adminStats.pendingWithdrawals}</p>
            </div>
-           <div className="glass-dark border-blue-500/20 p-3 rounded-2xl flex flex-col justify-center items-center">
-              <p className="text-[7px] font-black text-blue-500 uppercase tracking-widest">Paid Out</p>
+           <div className="glass-dark border-blue-500/20 p-4 rounded-2xl">
+              <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">Total Paid</p>
               <p className="text-xl font-black text-blue-500">৳{adminStats.totalEarnings}</p>
            </div>
         </div>
@@ -144,23 +151,17 @@ const Admin: React.FC = () => {
                   <GlassCard key={sub.id} className="space-y-4 border-white/5">
                     <div className="flex justify-between items-start">
                       <div className="flex gap-3">
-                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${sub.task?.category === 'facebook' ? 'bg-[#1877F2]/10 text-[#1877F2]' : 'bg-[#00f2ff]/10 text-[#00f2ff]'}`}><FileText size={20} /></div>
+                         <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#00f2ff]"><FileText size={20} /></div>
                          <div>
                             <p className="text-sm font-black text-white">{sub.task?.title}</p>
                             <p className="text-[10px] text-slate-500 font-black uppercase">User: {(sub as any).user?.full_name || 'Anonymous'}</p>
                          </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-emerald-400 font-black text-lg">৳{sub.task?.reward_amount}</span>
-                        <p className="text-[8px] text-slate-600 font-black uppercase">{new Date(sub.created_at).toLocaleDateString()}</p>
-                      </div>
+                      <span className="text-emerald-400 font-black text-lg">৳{sub.task?.reward_amount}</span>
                     </div>
                     <div className="bg-black/60 p-3 rounded-2xl border border-white/5 overflow-hidden">
                        {sub.task?.proof_type === 'image' ? (
-                          <a href={sub.proof_data} target="_blank" rel="noreferrer" className="block relative group">
-                             <img src={sub.proof_data} className="w-full max-h-60 object-contain rounded-xl border border-white/5 group-hover:opacity-80 transition-opacity" />
-                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40"><ExternalLink size={24} className="text-white" /></div>
-                          </a>
+                          <a href={sub.proof_data} target="_blank" rel="noreferrer"><img src={sub.proof_data} className="w-full max-h-60 object-contain rounded-xl" /></a>
                        ) : <p className="text-xs text-slate-300 font-mono break-all">{sub.proof_data}</p>}
                     </div>
                     {sub.status === 'pending' && (
@@ -173,11 +174,11 @@ const Admin: React.FC = () => {
                              await supabase.from('transactions').insert({ user_id: sub.user_id, amount: sub.task?.reward_amount, type: 'earning', description: `Approved: ${sub.task?.title}` });
                              fetchData(); fetchAdminStats();
                            }
-                         }} className="py-3 bg-emerald-500 text-slate-950 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-emerald-500/10 active:scale-95 transition-all">APPROVE</button>
+                         }} className="py-3 bg-emerald-500 text-slate-950 rounded-xl font-black text-[10px] uppercase">APPROVE</button>
                          <button onClick={async () => {
                            await supabase.from('submissions').update({ status: 'rejected' }).eq('id', sub.id);
                            fetchData(); fetchAdminStats();
-                         }} className="py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl font-black text-[10px] uppercase active:scale-95 transition-all">REJECT</button>
+                         }} className="py-3 bg-red-500/10 text-red-400 rounded-xl font-black text-[10px] uppercase">REJECT</button>
                       </div>
                     )}
                   </GlassCard>
@@ -186,95 +187,98 @@ const Admin: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'tasks' && (
-            <div className="space-y-4">
-               <button onClick={() => setShowAddTask(true)} className="w-full py-4 bg-gradient-primary text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-[#00f2ff]/20">+ CREATE NEW WORK</button>
-               {tasks.map(t => (
-                 <GlassCard key={t.id} className="flex justify-between items-center border-white/5">
-                    <div className="flex items-center gap-3">
-                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.category === 'facebook' ? 'bg-[#1877F2]/10 text-[#1877F2]' : 'bg-white/5 text-slate-500'}`}><Zap size={18} /></div>
-                       <div>
-                          <div className="flex items-center gap-2">
-                             <p className="font-bold text-sm text-white">{t.title}</p>
-                             {t.is_featured && <Star size={10} className="text-amber-500 fill-current" />}
-                          </div>
-                          <p className="text-[9px] text-slate-500 font-black uppercase">{t.category} • Reward: ৳{t.reward_amount}</p>
-                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                       <button onClick={() => handleToggleFeature(t)} className={`p-2 rounded-xl transition-all ${t.is_featured ? 'bg-amber-500 text-slate-950' : 'bg-white/5 text-slate-500'}`} title="Feature Task"><Star size={16} /></button>
-                       <button onClick={async () => { if(confirm('Delete mission?')) { await supabase.from('tasks').delete().eq('id', t.id); fetchData(); } }} className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
-                    </div>
-                 </GlassCard>
-               ))}
-            </div>
-          )}
-
           {activeTab === 'settings' && settings && (
             <div className="space-y-6">
-               <GlassCard className="space-y-4 border-white/5">
+               <GlassCard className="space-y-6 border-white/5">
                   <div className="flex items-center gap-2 mb-2">
-                     <TrendingUp className="text-amber-500" size={18} />
-                     <h3 className="text-xs font-black uppercase text-slate-300">Monetization: Ad Banners</h3>
+                     <Wrench className="text-[#00f2ff]" size={20} />
+                     <h3 className="text-sm font-black uppercase text-white">System Configuration</h3>
                   </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Min Withdrawal (৳)</label>
+                      <input type="number" value={settings.min_withdrawal} onChange={e => setSettings({...settings, min_withdrawal: parseFloat(e.target.value)})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-sm outline-none focus:border-[#00f2ff]" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Activation Fee (৳)</label>
+                      <input type="number" value={settings.activation_fee} onChange={e => setSettings({...settings, activation_fee: parseFloat(e.target.value)})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-sm outline-none focus:border-[#00f2ff]" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Referral Reward (৳)</label>
+                      <input type="number" value={settings.referral_reward} onChange={e => setSettings({...settings, referral_reward: parseFloat(e.target.value)})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-sm outline-none focus:border-[#00f2ff]" />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-500 uppercase">Banner HTML/JS Code</label>
-                     <textarea value={settings.banner_ads_code || ''} onChange={e => setSettings({...settings, banner_ads_code: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono outline-none focus:border-[#00f2ff] h-40 text-blue-300" placeholder="Paste your ad networks script code here..." />
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Support URL</label>
+                    <input type="text" value={settings.support_url} onChange={e => setSettings({...settings, support_url: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-sm outline-none focus:border-[#00f2ff]" />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                     <div>
+                        <p className="text-sm font-bold text-white">Maintenance Mode</p>
+                        <p className="text-[10px] text-slate-500 uppercase">Lock app for non-admin users</p>
+                     </div>
+                     <button onClick={() => setSettings({...settings, is_maintenance: !settings.is_maintenance})} className={`w-12 h-6 rounded-full relative transition-colors ${settings.is_maintenance ? 'bg-red-500' : 'bg-slate-700'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.is_maintenance ? 'left-7' : 'left-1'}`}></div>
+                     </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                     <div>
+                        <p className="text-sm font-bold text-white">Require Activation</p>
+                        <p className="text-[10px] text-slate-500 uppercase">Users must pay fee to withdraw</p>
+                     </div>
+                     <button onClick={() => setSettings({...settings, require_activation: !settings.require_activation})} className={`w-12 h-6 rounded-full relative transition-colors ${settings.require_activation ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.require_activation ? 'left-7' : 'left-1'}`}></div>
+                     </button>
                   </div>
                </GlassCard>
+
                <GlassCard className="space-y-4 border-white/5">
                   <div className="flex items-center gap-2 mb-2">
-                     <Megaphone className="text-[#00f2ff]" size={18} />
-                     <h3 className="text-xs font-black uppercase text-slate-300">Announcements</h3>
+                     <Megaphone className="text-[#00f2ff]" size={20} />
+                     <h3 className="text-sm font-black uppercase text-white">Notice Board</h3>
                   </div>
                   <div className="space-y-2">
-                     <label className="text-[9px] font-black text-slate-500 uppercase">Ticker Message</label>
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticker Message</label>
                      <input type="text" value={settings.notice_text || ''} onChange={e => setSettings({...settings, notice_text: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-sm outline-none focus:border-[#00f2ff]" />
                   </div>
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Notice (HTML)</label>
+                     <textarea value={settings.global_notice || ''} onChange={e => setSettings({...settings, global_notice: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono h-32 focus:border-[#00f2ff] outline-none" />
+                  </div>
                </GlassCard>
-               <button onClick={async () => {
-                 await supabase.from('system_settings').update(settings).eq('id', 1);
-                 alert('Settings deployed successfully!');
-               }} className="w-full py-5 bg-gradient-primary rounded-2xl text-slate-950 font-black text-sm uppercase tracking-widest shadow-2xl shadow-[#00f2ff]/20 active:scale-[0.98] transition-all">DEPLOY SYSTEM CHANGES</button>
+
+               <button disabled={isUpdatingSettings} onClick={handleUpdateSettings} className="w-full py-5 bg-gradient-primary rounded-2xl text-slate-950 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-[#00f2ff]/20 active:scale-[0.98] transition-all">
+                 {isUpdatingSettings ? <Loader2 className="animate-spin" /> : <Save size={20} />}
+                 SAVE SYSTEM CHANGES
+               </button>
             </div>
           )}
-        </>
-      )}
 
-      {/* Mission Creation Overlay */}
-      {showAddTask && (
-         <div className="fixed inset-0 z-[120] bg-slate-950/98 backdrop-blur-2xl flex items-center justify-center p-4">
-            <div className="glass w-full max-w-lg rounded-[2.5rem] border-white/10 p-8 space-y-6 animate-in zoom-in-95 duration-300">
-               <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-black text-white">Publish Mission</h3>
-                  <button onClick={() => setShowAddTask(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-slate-500">✕</button>
-               </div>
-               <div className="space-y-4">
-                  <input value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-sm" placeholder="Title (e.g., Post on FB Wall)" />
-                  <textarea value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-sm h-24" placeholder="Instructions for the user..." />
-                  <div className="grid grid-cols-2 gap-4">
-                    <select value={newTask.category} onChange={e => setNewTask({...newTask, category: e.target.value as TaskCategory})} className="bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-black uppercase text-slate-400">
-                       <option value="facebook">Facebook</option>
-                       <option value="youtube">YouTube</option>
-                       <option value="tiktok">TikTok</option>
-                       <option value="other">Other/Web</option>
-                    </select>
-                    <input type="number" value={newTask.reward_amount} onChange={e => setNewTask({...newTask, reward_amount: parseFloat(e.target.value)})} className="bg-black/60 border border-white/5 rounded-2xl p-4 text-sm" placeholder="Reward (৳)" />
-                  </div>
-                  <input value={newTask.link} onChange={e => setNewTask({...newTask, link: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono" placeholder="Target Link (https://...)" />
-                  <textarea value={newTask.copy_text} onChange={e => setNewTask({...newTask, copy_text: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-2xl p-4 text-xs" placeholder="Post Caption (Optional)" />
-                  <div className="flex items-center gap-3 px-2">
-                     <input type="checkbox" checked={newTask.is_featured} onChange={e => setNewTask({...newTask, is_featured: e.target.checked})} id="feat" className="w-4 h-4 accent-[#00f2ff]" />
-                     <label htmlFor="feat" className="text-[10px] font-black uppercase text-amber-500 tracking-widest cursor-pointer">Mark as Featured (Ad)</label>
-                  </div>
-               </div>
-               <button onClick={async () => {
-                 await supabase.from('tasks').insert(newTask);
-                 setShowAddTask(false);
-                 fetchData();
-               }} className="w-full py-5 bg-gradient-primary text-slate-950 font-black rounded-2xl text-sm uppercase tracking-widest shadow-xl shadow-[#00f2ff]/20">PUBLISH TO USERS</button>
-            </div>
-         </div>
+          {activeTab === 'users' && (
+             <div className="space-y-4">
+                <div className="relative mb-6">
+                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                   <input type="text" className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff] outline-none" placeholder="Search users by name or email..." />
+                </div>
+                {users.map(u => (
+                  <GlassCard key={u.id} className="flex justify-between items-center border-white/5">
+                     <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#00f2ff] font-black border border-white/5">{u.email[0].toUpperCase()}</div>
+                        <div>
+                           <p className="font-bold text-sm text-white">{u.full_name}</p>
+                           <p className="text-[10px] text-slate-500 font-black uppercase">Balance: ৳{u.balance} • Ref: {u.referral_count}</p>
+                        </div>
+                     </div>
+                     <button onClick={() => alert('User details modal coming soon')} className="p-2 bg-white/5 rounded-xl text-slate-400 hover:text-white transition-colors"><Eye size={18} /></button>
+                  </GlassCard>
+                ))}
+             </div>
+          )}
+        </>
       )}
     </div>
   );
