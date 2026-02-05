@@ -1,3 +1,4 @@
+
 export type UserRole = 'user' | 'admin';
 export type KYCStatus = 'none' | 'pending' | 'verified';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
@@ -40,7 +41,6 @@ export interface Task {
   copy_text?: string;
   image_url?: string;
   is_active: boolean;
-  // Added missing is_featured property
   is_featured: boolean;
   created_at: string;
 }
@@ -94,6 +94,8 @@ export interface SystemSettings {
   banner_ads_code: string;
   min_withdrawal: number;
   activation_fee: number;
+  referral_reward: number;
+  support_url: string;
   is_maintenance: boolean;
   require_activation: boolean;
 }

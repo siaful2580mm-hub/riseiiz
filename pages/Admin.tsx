@@ -4,22 +4,24 @@ import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
 import { 
   ShieldCheck, Users, Clock, CheckCircle, Trash2, Loader2, Plus, 
-  RefreshCw, Wrench, X, Star, DollarSign, Wallet, FileText, Search, UserX, UserCheck
+  RefreshCw, Wrench, X, Star, DollarSign, Wallet, FileText, Search, 
+  UserX, UserCheck, Zap, Globe, MessageCircle, AlertTriangle
 } from 'lucide-react';
-import { Submission, Task, Profile, SystemSettings, Withdrawal } from '../types.ts';
+import { Submission, Task, Profile, SystemSettings, Withdrawal, Activation } from '../types.ts';
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'withdrawals' | 'tasks' | 'users' | 'settings' | 'kyc'>('submissions');
+  const [activeTab, setActiveTab] = useState<'submissions' | 'withdrawals' | 'activations' | 'tasks' | 'users' | 'settings' | 'kyc'>('submissions');
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [activations, setActivations] = useState<Activation[]>([]);
   const [kycRequests, setKycRequests] = useState<Profile[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
-  const [settings, setSettings] = useState<any | null>(null);
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchUser, setSearchUser] = useState('');
   
-  const [adminStats, setAdminStats] = useState({ totalUsers: 0, pendingSub: 0, pendingWithdraw: 0, totalPaid: 0 });
+  const [adminStats, setAdminStats] = useState({ totalUsers: 0, pendingSub: 0, pendingWithdraw: 0, totalPaid: 0, pendingActivations: 0 });
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({
     title: '', description: '', category: 'facebook', reward_amount: 10, link: '', proof_type: 'image', is_active: true, is_featured: false, copy_text: '', image_url: ''
@@ -35,6 +37,7 @@ const Admin: React.FC = () => {
       const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
       const { count: pendingSub } = await supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('status', 'pending');
       const { count: pendingWith } = await supabase.from('withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+      const { count: pendingAct } = await supabase.from('activations').select('*', { count: 'exact', head: true }).eq('status', 'pending');
       const { data: withdrawalsDone } = await supabase.from('withdrawals').select('amount').eq('status', 'completed');
       
       const totalPaid = withdrawalsDone?.reduce((a, b) => a + (b.amount || 0), 0) || 0;
@@ -42,6 +45,7 @@ const Admin: React.FC = () => {
         totalUsers: usersCount || 0, 
         pendingSub: pendingSub || 0, 
         pendingWithdraw: pendingWith || 0,
+        pendingActivations: pendingAct || 0,
         totalPaid
       });
     } catch (e) { console.error(e); }
@@ -56,6 +60,9 @@ const Admin: React.FC = () => {
       } else if (activeTab === 'withdrawals') {
         const { data } = await supabase.from('withdrawals').select('*, user:profiles(*)').order('created_at', { ascending: false });
         setWithdrawals(data || []);
+      } else if (activeTab === 'activations') {
+        const { data } = await supabase.from('activations').select('*, user:profiles(*)').order('created_at', { ascending: false });
+        setActivations(data || []);
       } else if (activeTab === 'tasks') {
         const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
         setTasks(data || []);
@@ -75,6 +82,21 @@ const Admin: React.FC = () => {
       }
     } catch (err: any) { console.error(err); } 
     finally { setLoading(false); }
+  };
+
+  const handleUpdateActivation = async (act: Activation, status: 'approved' | 'rejected') => {
+    try {
+      const { error } = await supabase.from('activations').update({ status }).eq('id', act.id);
+      if (error) throw error;
+
+      if (status === 'approved') {
+        await supabase.from('profiles').update({ is_active: true }).eq('id', act.user_id);
+      }
+      
+      alert(`Activation ${status}!`);
+      fetchData();
+      fetchAdminStats();
+    } catch (e: any) { alert(e.message); }
   };
 
   const handleAddTask = async () => {
@@ -133,6 +155,15 @@ const Admin: React.FC = () => {
     } catch (e: any) { alert(e.message); }
   };
 
+  const saveSettings = async () => {
+    if (!settings) return;
+    try {
+      const { error } = await supabase.from('system_settings').update(settings).eq('id', 1);
+      if (error) throw error;
+      alert('Global Settings Updated!');
+    } catch (e: any) { alert(e.message); }
+  };
+
   return (
     <div className="space-y-6 pb-32">
       <div className="flex flex-col gap-4">
@@ -141,7 +172,7 @@ const Admin: React.FC = () => {
           <button onClick={() => fetchData()} className="p-2 bg-white/5 rounded-xl text-[#00f2ff]"><RefreshCw size={20} /></button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
            <div className="glass-dark border-white/5 p-4 rounded-2xl">
               <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Users</p>
               <p className="text-xl font-black text-white">{adminStats.totalUsers}</p>
@@ -149,6 +180,10 @@ const Admin: React.FC = () => {
            <div className="glass-dark border-amber-500/20 p-4 rounded-2xl">
               <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Pending Sub</p>
               <p className="text-xl font-black text-amber-500">{adminStats.pendingSub}</p>
+           </div>
+           <div className="glass-dark border-emerald-500/20 p-4 rounded-2xl">
+              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Activations</p>
+              <p className="text-xl font-black text-emerald-500">{adminStats.pendingActivations}</p>
            </div>
            <div className="glass-dark border-emerald-500/20 p-4 rounded-2xl">
               <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Pending With</p>
@@ -161,7 +196,7 @@ const Admin: React.FC = () => {
         </div>
         
         <div className="flex gap-2 overflow-x-auto scrollbar-hide py-2">
-          {(['submissions', 'withdrawals', 'kyc', 'tasks', 'users', 'settings'] as const).map((tab) => (
+          {(['submissions', 'activations', 'withdrawals', 'kyc', 'tasks', 'users', 'settings'] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-gradient-primary text-slate-950 shadow-lg shadow-[#00f2ff]/20' : 'bg-white/5 text-slate-500 hover:text-white'}`}>
               {tab}
             </button>
@@ -199,6 +234,30 @@ const Admin: React.FC = () => {
                        <button onClick={() => handleUpdateSubmission(sub, 'rejected')} className="flex-1 py-3 bg-red-500/20 text-red-400 font-black text-[10px] rounded-xl active:scale-95 transition-all">REJECT</button>
                     </div>
                   )}
+                </GlassCard>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'activations' && (
+            <div className="space-y-4">
+              {activations.length === 0 ? <p className="text-center py-10 text-slate-500">No activation requests.</p> :
+              activations.map(act => (
+                <GlassCard key={act.id} className="space-y-4">
+                   <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs font-black text-[#00f2ff] uppercase tracking-widest">TrxID: {act.transaction_id}</p>
+                        <p className="text-sm font-bold text-white mt-1">Method: {act.method}</p>
+                        <p className="text-[10px] text-slate-400">User: {act.user?.full_name} ({act.user?.email})</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-[8px] font-black uppercase ${act.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>{act.status}</span>
+                   </div>
+                   {act.status === 'pending' && (
+                     <div className="flex gap-2">
+                       <button onClick={() => handleUpdateActivation(act, 'approved')} className="flex-1 py-3 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl">APPROVE</button>
+                       <button onClick={() => handleUpdateActivation(act, 'rejected')} className="flex-1 py-3 bg-red-500/20 text-red-400 font-black text-[10px] rounded-xl">REJECT</button>
+                     </div>
+                   )}
                 </GlassCard>
               ))}
             </div>
@@ -251,7 +310,10 @@ const Admin: React.FC = () => {
                          <div>
                             <p className="font-bold text-sm">{u.full_name || 'No Name'}</p>
                             <p className="text-[10px] text-slate-500">{u.email}</p>
-                            {u.referred_by && <p className="text-[8px] text-blue-400 uppercase font-black">Ref by: {u.referred_by}</p>}
+                            <div className="flex gap-2 mt-1">
+                               {u.is_active ? <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-black">ACTIVE</span> : <span className="text-[8px] bg-slate-500/10 text-slate-500 px-1.5 py-0.5 rounded font-black">UNACTIVATED</span>}
+                               {u.kyc_status === 'verified' && <span className="text-[8px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-black">KYC OK</span>}
+                            </div>
                          </div>
                       </div>
                       <div className="text-right">
@@ -335,15 +397,53 @@ const Admin: React.FC = () => {
           )}
           
           {activeTab === 'settings' && settings && (
-            <div className="space-y-4">
-               <GlassCard className="space-y-6">
-                  <div className="flex items-center gap-3 border-b border-white/5 pb-4"><Wrench size={24} className="text-[#00f2ff]" /><h3 className="text-lg font-black uppercase tracking-tighter">System Config</h3></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 block">Min Withdraw</label><input type="number" value={settings.min_withdrawal} onChange={e => setSettings({...settings, min_withdrawal: parseFloat(e.target.value)})} className="w-full bg-black/60 border border-white/5 rounded-xl p-4 text-sm outline-none" /></div>
-                    <div><label className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 block">Ref Bonus</label><input type="number" value={settings.referral_reward} onChange={e => setSettings({...settings, referral_reward: parseFloat(e.target.value)})} className="w-full bg-black/60 border border-white/5 rounded-xl p-4 text-sm outline-none" /></div>
+            <div className="space-y-6">
+               <GlassCard className="space-y-6 border-white/5">
+                  <div className="flex items-center gap-3 border-b border-white/5 pb-4"><Wrench size={24} className="text-[#00f2ff]" /><h3 className="text-lg font-black uppercase tracking-tighter">System Configuration</h3></div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Toggles */}
+                    <div className="space-y-4 bg-black/20 p-4 rounded-2xl border border-white/5">
+                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Switches</h4>
+                       <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2"><AlertTriangle size={14} className="text-amber-500" /> <span className="text-xs font-bold">Maintenance Mode</span></div>
+                          <input type="checkbox" checked={settings.is_maintenance} onChange={e => setSettings({...settings, is_maintenance: e.target.checked})} className="w-10 h-5 accent-amber-500" />
+                       </div>
+                       <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2"><Zap size={14} className="text-[#00f2ff]" /> <span className="text-xs font-bold">Require Activation</span></div>
+                          <input type="checkbox" checked={settings.require_activation} onChange={e => setSettings({...settings, require_activation: e.target.checked})} className="w-10 h-5 accent-[#00f2ff]" />
+                       </div>
+                    </div>
+
+                    {/* Monetary Inputs */}
+                    <div className="space-y-4 bg-black/20 p-4 rounded-2xl border border-white/5">
+                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Financials</h4>
+                       <div className="grid grid-cols-1 gap-3">
+                          <div>
+                            <label className="text-[8px] text-slate-500 font-black uppercase mb-1 block">Min Withdraw (৳)</label>
+                            <input type="number" value={settings.min_withdrawal} onChange={e => setSettings({...settings, min_withdrawal: parseFloat(e.target.value)})} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs outline-none" />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-slate-500 font-black uppercase mb-1 block">Activation Fee (৳)</label>
+                            <input type="number" value={settings.activation_fee} onChange={e => setSettings({...settings, activation_fee: parseFloat(e.target.value)})} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs outline-none" />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-slate-500 font-black uppercase mb-1 block">Ref Bonus (৳)</label>
+                            <input type="number" value={settings.referral_reward} onChange={e => setSettings({...settings, referral_reward: parseFloat(e.target.value)})} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs outline-none" />
+                          </div>
+                       </div>
+                    </div>
                   </div>
-                  <div><label className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1 block">Ticker Message</label><input value={settings.notice_text} onChange={e => setSettings({...settings, notice_text: e.target.value})} className="w-full bg-black/60 border border-white/5 rounded-xl p-4 text-sm outline-none" /></div>
-                  <button onClick={async () => { await supabase.from('system_settings').update(settings).eq('id', 1); alert('Global Settings Updated!'); }} className="w-full py-5 bg-gradient-primary rounded-2xl text-slate-950 font-black text-sm uppercase tracking-widest shadow-xl shadow-[#00f2ff]/20">SAVE ALL CHANGES</button>
+
+                  {/* Text/Links */}
+                  <div className="space-y-4">
+                     <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Communication</h4>
+                     <div><label className="text-[8px] text-slate-500 font-black uppercase mb-1 block">Support URL (Telegram/WA)</label><div className="relative"><MessageCircle size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" /><input value={settings.support_url} onChange={e => setSettings({...settings, support_url: e.target.value})} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 pl-10 text-xs outline-none" /></div></div>
+                     <div><label className="text-[8px] text-slate-500 font-black uppercase mb-1 block">Ticker Message</label><input value={settings.notice_text} onChange={e => setSettings({...settings, notice_text: e.target.value})} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs outline-none" /></div>
+                     <div><label className="text-[8px] text-slate-500 font-black uppercase mb-1 block">Global Notice (HTML Supported)</label><textarea value={settings.global_notice} onChange={e => setSettings({...settings, global_notice: e.target.value})} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs outline-none h-32 font-mono" /></div>
+                  </div>
+
+                  <button onClick={saveSettings} className="w-full py-5 bg-gradient-primary rounded-2xl text-slate-950 font-black text-sm uppercase tracking-widest shadow-xl shadow-[#00f2ff]/20 active:scale-[0.98] transition-all">SAVE ALL CHANGES</button>
                </GlassCard>
             </div>
           )}

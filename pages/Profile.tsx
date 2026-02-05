@@ -28,14 +28,6 @@ const Profile: React.FC = () => {
     }
   };
 
-  const copyRefLink = () => {
-    if (profile?.referral_code) {
-      const link = `${window.location.origin}/auth?ref=${profile.referral_code}`;
-      navigator.clipboard.writeText(link);
-      alert('Referral link copied!');
-    }
-  };
-
   const handleApplyReferral = async () => {
     if (!profile || !inputRefCode || isApplying) return;
     const cleanCode = inputRefCode.trim().toUpperCase();
@@ -190,21 +182,6 @@ const Profile: React.FC = () => {
               >
                 <Copy size={14} /> {t.share_code}
               </button>
-            </div>
-
-            <div className="pt-4 border-t border-white/5 flex flex-col gap-2">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t.ref_link}</p>
-              <div className="flex gap-2">
-                <div className="flex-1 bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-mono text-slate-400 truncate flex items-center">
-                  {window.location.origin}/auth?ref={profile.referral_code}
-                </div>
-                <button 
-                  onClick={copyRefLink}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30 active:scale-95 transition-all text-[10px] font-black uppercase"
-                >
-                  {t.copy_link}
-                </button>
-              </div>
             </div>
           </div>
           
