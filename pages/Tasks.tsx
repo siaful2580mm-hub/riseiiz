@@ -1,10 +1,14 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
 import { CATEGORY_ICONS } from '../constants.tsx';
-// Added Star to the imported icons from lucide-react
-import { ExternalLink, Send, CheckCircle2, Loader2, Copy, Download, Camera, Info, ListChecks, Clock, AlertTriangle, Filter, History, Zap, Upload, Facebook, ShieldCheck, Star } from 'lucide-react';
+import { 
+  ExternalLink, Send, CheckCircle2, Loader2, Copy, Download, 
+  Camera, Info, ListChecks, Clock, AlertTriangle, History, 
+  Zap, Upload, Facebook, ShieldCheck, Star, Trash2, ChevronRight, FileDown 
+} from 'lucide-react';
 import { Task, TaskCategory, SubmissionStatus, SystemSettings } from '../types.ts';
 
 type SortOption = 'newest' | 'oldest' | 'reward-high' | 'reward-low';
@@ -157,110 +161,183 @@ const Tasks: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <h2 className="text-2xl font-black">Daily Missions</h2>
+        <h2 className="text-2xl font-black uppercase tracking-tight">Mission Board</h2>
         
         <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
-          <button onClick={() => setActiveTab('available')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${activeTab === 'available' ? 'bg-[#00f2ff]/20 text-[#00f2ff]' : 'text-slate-500'}`}>Available</button>
-          <button onClick={() => setActiveTab('submitted')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${activeTab === 'submitted' ? 'bg-[#00f2ff]/20 text-[#00f2ff]' : 'text-slate-500'}`}>My Work</button>
+          <button onClick={() => setActiveTab('available')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${activeTab === 'available' ? 'bg-[#00f2ff]/20 text-[#00f2ff]' : 'text-slate-500'}`}>Available Missions</button>
+          <button onClick={() => setActiveTab('submitted')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${activeTab === 'submitted' ? 'bg-[#00f2ff]/20 text-[#00f2ff]' : 'text-slate-500'}`}>My Submissions</button>
+        </div>
+
+        <div className="flex items-center gap-2">
+           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value as any)} className="bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] font-black uppercase outline-none focus:border-[#00f2ff] transition-all flex-1">
+             <option value="all">Platforms: All</option>
+             <option value="facebook">Facebook</option>
+             <option value="youtube">YouTube</option>
+             <option value="tiktok">TikTok</option>
+           </select>
+           <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] font-black uppercase outline-none focus:border-[#00f2ff] transition-all flex-1">
+             <option value="newest">Sort: Newest</option>
+             <option value="reward-high">Sort: High Pay</option>
+           </select>
         </div>
       </div>
 
-      {/* Sponsored Ad */}
+      {/* Sponsored Ad Placeholder */}
       {settings?.banner_ads_code && activeTab === 'available' && (
-         <div className="glass-dark border-amber-500/20 rounded-2xl p-4 overflow-hidden">
-            <p className="text-[8px] font-black uppercase text-amber-500 mb-2">Promoted Content</p>
-            <div dangerouslySetInnerHTML={{ __html: settings.banner_ads_code }} />
+         <div className="glass-dark border-amber-500/20 rounded-2xl p-4 overflow-hidden relative">
+            <span className="absolute top-2 right-4 text-[7px] font-black uppercase text-amber-500/40 tracking-widest">Sponsored</span>
+            <div className="flex justify-center" dangerouslySetInnerHTML={{ __html: settings.banner_ads_code }} />
          </div>
       )}
 
       <div className="grid grid-cols-1 gap-4">
-        {filteredAndSortedTasks.map((task) => (
-          <GlassCard key={task.id} className={`border-l-4 ${task.is_featured ? 'border-l-amber-500 bg-amber-500/5' : 'border-l-transparent'} ${task.category === 'facebook' ? 'border-[#1877F2]/30' : ''}`}>
-            <div className="flex gap-4">
-              <div className="w-14 h-14 glass-dark rounded-2xl flex items-center justify-center shrink-0 border border-white/5">
-                {CATEGORY_ICONS[task.category] || CATEGORY_ICONS['other']}
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-black text-base text-white">{task.title}</h3>
-                      {task.is_featured && <Star size={12} className="text-amber-500 fill-current" />}
-                    </div>
-                    <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{task.category}</span>
-                  </div>
-                  <span className="text-[#00f2ff] font-black text-xl">৳{task.reward_amount}</span>
+        {filteredAndSortedTasks.length === 0 ? (
+           <div className="text-center py-20 glass rounded-3xl border-dashed border-white/5 space-y-4">
+              <Zap size={40} className="mx-auto text-slate-800" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">No missions found in this category.</p>
+           </div>
+        ) : (
+          filteredAndSortedTasks.map((task) => (
+            <GlassCard key={task.id} className={`border-l-4 transition-all duration-300 ${task.is_featured ? 'border-l-amber-500 shadow-lg shadow-amber-500/5' : 'border-l-transparent'} ${task.category === 'facebook' ? 'border-[#1877F2]' : ''}`}>
+              <div className="flex gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-white/5 shadow-inner ${task.category === 'facebook' ? 'bg-[#1877F2]/10 text-[#1877F2]' : 'bg-white/5 text-slate-300'}`}>
+                  {CATEGORY_ICONS[task.category] || CATEGORY_ICONS['other']}
                 </div>
-                
-                <button 
-                  onClick={() => setSelectedTask(task)}
-                  className="mt-4 w-full py-2.5 bg-slate-900 border border-white/5 rounded-xl text-[10px] font-black uppercase hover:bg-[#00f2ff] hover:text-slate-950 transition-all active:scale-[0.98]"
-                >
-                  {activeTab === 'submitted' ? 'View Details' : 'Launch Task'}
-                </button>
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-base text-white">{task.title}</h3>
+                        {task.is_featured && <Star size={12} className="text-amber-500 fill-current" />}
+                        {task.category === 'facebook' && <div className="px-1.5 py-0.5 bg-[#1877F2]/20 text-[#1877F2] rounded text-[8px] font-black uppercase tracking-widest">FB WORK</div>}
+                      </div>
+                      <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{task.category}</span>
+                    </div>
+                    <span className="text-white font-black text-xl">৳{task.reward_amount}</span>
+                  </div>
+                  
+                  <div className="mt-4 flex gap-2">
+                    <button 
+                      onClick={() => setSelectedTask(task)}
+                      className="flex-1 py-2.5 bg-slate-900 border border-white/5 rounded-xl text-[10px] font-black uppercase hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                    >
+                      {activeTab === 'submitted' ? <History size={12} /> : <Zap size={12} />}
+                      {activeTab === 'submitted' ? 'View Details' : 'Launch Task'}
+                    </button>
+                    {task.category === 'facebook' && activeTab === 'available' && (
+                       <button onClick={() => { window.open(task.link, '_blank'); }} className="p-2.5 bg-[#1877F2]/10 text-[#1877F2] border border-[#1877F2]/20 rounded-xl">
+                          <Facebook size={18} />
+                       </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          ))
+        )}
       </div>
 
-      {/* Task Execution Modal */}
+      {/* Specialized Task Panel Modal */}
       {selectedTask && (
         <div className="fixed inset-0 z-[100] bg-slate-950/98 backdrop-blur-xl flex items-end sm:items-center justify-center p-4">
-          <div className="glass w-full max-w-md rounded-3xl overflow-hidden animate-in slide-in-from-bottom duration-300 border-white/10">
-            <div className="p-6 space-y-6 max-h-[90vh] overflow-y-auto scrollbar-hide">
+          <div className="glass w-full max-w-md rounded-[2.5rem] overflow-hidden animate-in slide-in-from-bottom duration-300 border-white/10 shadow-3xl">
+            <div className="p-8 space-y-6 max-h-[90vh] overflow-y-auto scrollbar-hide">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-black text-white">{selectedTask.title}</h3>
-                <button onClick={() => setSelectedTask(null)} className="text-slate-500">✕</button>
+                <div className="flex items-center gap-3">
+                   <div className={`p-2.5 rounded-2xl ${selectedTask.category === 'facebook' ? 'bg-[#1877F2]/20 text-[#1877F2]' : 'bg-white/5 text-white'}`}>
+                      {CATEGORY_ICONS[selectedTask.category]}
+                   </div>
+                   <h3 className="text-xl font-black text-white">{selectedTask.title}</h3>
+                </div>
+                <button onClick={() => setSelectedTask(null)} className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-full text-slate-500 hover:text-white transition-colors">✕</button>
               </div>
 
-              {/* Specialized FB Guide */}
-              {selectedTask.category === 'facebook' && (
-                <div className="bg-blue-600/10 border border-blue-500/20 rounded-2xl p-4 flex gap-3">
-                  <Facebook className="text-blue-500 shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-black text-blue-400 uppercase mb-1">Facebook Guide</p>
-                    <p className="text-[11px] text-slate-300 leading-tight">আপনার পোস্টটি অবশ্যই <b>Public</b> হতে হবে নতুবা রিওয়ার্ড দেওয়া হবে না।</p>
-                  </div>
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-3xl p-5 flex justify-between items-center relative overflow-hidden">
+                <div className="z-10">
+                   <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Earning Potential</p>
+                   <p className="text-3xl font-black text-white">৳{selectedTask.reward_amount}</p>
                 </div>
-              )}
+                <Zap size={40} className="text-emerald-400 opacity-20 z-0" />
+              </div>
 
+              {/* Task Guide & Instructions */}
               <div className="space-y-4">
-                <p className="text-sm text-slate-400 bg-black/40 p-4 rounded-2xl border border-white/5 italic">
-                  {selectedTask.description}
-                </p>
-                <div className="flex flex-col gap-2">
-                  <a href={selectedTask.link} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 py-4 bg-blue-600 rounded-2xl font-black text-xs text-white active:scale-95 transition-all">
-                    <ExternalLink size={16} /> Link এ যান
-                  </a>
-                  {selectedTask.copy_text && (
-                    <button onClick={() => { navigator.clipboard.writeText(selectedTask.copy_text!); alert('Copied!'); }} className="flex items-center justify-center gap-2 py-4 bg-white/5 rounded-2xl font-black text-xs text-slate-300 border border-white/5 active:scale-95 transition-all">
-                      <Copy size={16} /> Caption কপি করুন
-                    </button>
-                  )}
+                <div className="flex items-center gap-2 text-slate-500">
+                  <ListChecks size={16} />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest">Step-by-Step Instructions</h4>
+                </div>
+                
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4">
+                   <p className="text-sm text-slate-300 leading-relaxed italic">{selectedTask.description}</p>
+                   
+                   {/* Specific Facebook Tutorial */}
+                   {selectedTask.category === 'facebook' && (
+                     <div className="bg-[#1877F2]/10 border border-[#1877F2]/20 rounded-2xl p-4 flex gap-3">
+                        <ShieldCheck className="text-[#1877F2] shrink-0" size={20} />
+                        <div className="space-y-1">
+                           <p className="text-[10px] font-black text-[#1877F2] uppercase">FB Submission Rules</p>
+                           <p className="text-[11px] text-slate-400">১. পোস্ট অবশ্যই <b>Public</b> হতে হবে।<br/>২. আপনার নাম ও প্রোফাইল ছবি স্পষ্ট থাকতে হবে।</p>
+                        </div>
+                     </div>
+                   )}
+
+                   <div className="grid grid-cols-1 gap-3 pt-2">
+                      <a href={selectedTask.link} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 py-4 bg-gradient-primary rounded-2xl font-black text-xs text-slate-950 active:scale-95 transition-all shadow-xl shadow-[#00f2ff]/20 uppercase tracking-widest">
+                        <ExternalLink size={18} /> Visit Target Link
+                      </a>
+                      {selectedTask.copy_text && (
+                        <button onClick={() => { navigator.clipboard.writeText(selectedTask.copy_text!); alert('Caption copied!'); }} className="flex items-center justify-center gap-3 py-4 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl font-black text-xs text-indigo-400 active:scale-95 transition-all uppercase tracking-widest">
+                          <Copy size={18} /> {t.copy_caption}
+                        </button>
+                      )}
+                      {selectedTask.category === 'facebook' && (
+                        <button className="flex items-center justify-center gap-3 py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-xs text-slate-300 active:scale-95 transition-all uppercase tracking-widest">
+                          <FileDown size={18} /> Download Asset Image
+                        </button>
+                      )}
+                   </div>
                 </div>
               </div>
 
-              {activeTab === 'available' && (
-                <form onSubmit={handleSubmit} className="pt-6 border-t border-white/5 space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Camera size={14} /> Proof Required</label>
+              {/* Submission Form */}
+              {activeTab === 'available' ? (
+                <form onSubmit={handleSubmit} className="pt-6 border-t border-white/5 space-y-5">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Camera size={14} /> Upload Verified Proof</label>
                     {selectedTask.proof_type === 'image' ? (
-                       <label className="w-full h-40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center bg-white/5 cursor-pointer overflow-hidden group">
-                         {proofPreview ? <img src={proofPreview} className="w-full h-full object-cover" /> : <><Upload size={24} className="text-slate-600 mb-2" /><span className="text-[9px] font-black uppercase text-slate-500">Upload Screenshot</span></>}
+                       <label className="w-full h-44 border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center bg-white/5 cursor-pointer overflow-hidden group hover:border-[#00f2ff]/40 transition-all">
+                         {proofPreview ? (
+                            <img src={proofPreview} className="w-full h-full object-cover" />
+                         ) : (
+                            <>
+                              <Upload size={32} className="text-slate-700 mb-2 group-hover:text-[#00f2ff] transition-colors" />
+                              <span className="text-[10px] font-black uppercase text-slate-600">Click to upload Screenshot</span>
+                            </>
+                         )}
                          <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                            const file = e.target.files?.[0];
                            if(file) { setProofFile(file); const r = new FileReader(); r.onload = (e) => setProofPreview(e.target?.result as string); r.readAsDataURL(file); }
                          }} />
                        </label>
                     ) : (
-                       <input required value={proof} onChange={e => setProof(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-xs" placeholder="Paste link/username..." />
+                       <input required value={proof} onChange={e => setProof(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-xs font-mono" placeholder="Paste link or profile ID..." />
                     )}
                   </div>
-                  <button disabled={isSubmitting} className="w-full py-4 bg-gradient-primary rounded-2xl font-black text-xs text-slate-950 flex items-center justify-center gap-2 shadow-xl shadow-[#00f2ff]/20">
-                    {isSubmitting ? <Loader2 className="animate-spin" /> : <Send size={18} />} SUBMIT PROOF
+                  <button disabled={isSubmitting} className="w-full py-5 bg-gradient-primary rounded-2xl font-black text-sm text-slate-950 flex items-center justify-center gap-3 shadow-2xl shadow-[#00f2ff]/30 uppercase tracking-[0.2em] active:scale-[0.98] transition-all">
+                    {isSubmitting ? <Loader2 className="animate-spin" /> : <Send size={20} />}
+                    {t.submit_now}
                   </button>
                 </form>
+              ) : (
+                <div className="pt-6 border-t border-white/5">
+                   <div className="bg-white/5 rounded-2xl p-4 flex items-center justify-between">
+                      <div>
+                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</p>
+                         <p className="text-sm font-black text-emerald-400 uppercase tracking-widest">{userSubmissions[selectedTask.id]}</p>
+                      </div>
+                      <CheckCircle2 size={24} className="text-emerald-500/40" />
+                   </div>
+                </div>
               )}
             </div>
           </div>
