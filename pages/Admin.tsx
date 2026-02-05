@@ -100,21 +100,21 @@ const Admin: React.FC = () => {
 
         {/* Admin Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-           <div className="glass-dark border-white/5 p-3 rounded-2xl">
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Total Users</p>
-              <p className="text-lg font-black text-white">{adminStats.totalUsers}</p>
+           <div className="glass-dark border-white/5 p-3 rounded-2xl flex flex-col justify-center items-center">
+              <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Total Users</p>
+              <p className="text-xl font-black text-white">{adminStats.totalUsers}</p>
            </div>
-           <div className="glass-dark border-amber-500/20 p-3 rounded-2xl">
-              <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Pending Work</p>
-              <p className="text-lg font-black text-amber-500">{adminStats.pendingSubmissions}</p>
+           <div className="glass-dark border-amber-500/20 p-3 rounded-2xl flex flex-col justify-center items-center">
+              <p className="text-[7px] font-black text-amber-500 uppercase tracking-widest">Pending Sub</p>
+              <p className="text-xl font-black text-amber-500">{adminStats.pendingSubmissions}</p>
            </div>
-           <div className="glass-dark border-emerald-500/20 p-3 rounded-2xl">
-              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Pending Payouts</p>
-              <p className="text-lg font-black text-emerald-500">{adminStats.pendingWithdrawals}</p>
+           <div className="glass-dark border-emerald-500/20 p-3 rounded-2xl flex flex-col justify-center items-center">
+              <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest">Withdraw Req</p>
+              <p className="text-xl font-black text-emerald-500">{adminStats.pendingWithdrawals}</p>
            </div>
-           <div className="glass-dark border-blue-500/20 p-3 rounded-2xl">
-              <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Paid Out</p>
-              <p className="text-lg font-black text-blue-500">৳{adminStats.totalEarnings}</p>
+           <div className="glass-dark border-blue-500/20 p-3 rounded-2xl flex flex-col justify-center items-center">
+              <p className="text-[7px] font-black text-blue-500 uppercase tracking-widest">Paid Out</p>
+              <p className="text-xl font-black text-blue-500">৳{adminStats.totalEarnings}</p>
            </div>
         </div>
         

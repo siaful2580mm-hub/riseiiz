@@ -1,6 +1,6 @@
 
 -- ==========================================
--- 1. BASE TABLES (IF NOT EXIST)
+-- 1. BASE TABLES
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
 INSERT INTO public.system_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 
 -- ==========================================
--- 3. TRIGGER FOR AUTO PROFILE & REFERRAL
+-- 3. ROBUST TRIGGER FOR AUTO PROFILE & REFERRAL
 -- ==========================================
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -58,34 +58,38 @@ DECLARE
     new_ref_code TEXT;
     referrer_id UUID;
     ref_bonus NUMERIC;
+    input_ref_code TEXT;
 BEGIN
-    -- Generate unique referral code (RP-XXXXX)
+    -- 1. Generate unique referral code (RP-XXXXX)
     new_ref_code := 'RP-' || UPPER(SUBSTRING(REPLACE(gen_random_uuid()::TEXT, '-', ''), 1, 8));
 
-    -- Get referral reward amount from settings
+    -- 2. Get settings
     SELECT referral_reward INTO ref_bonus FROM public.system_settings WHERE id = 1;
     IF ref_bonus IS NULL THEN ref_bonus := 5; END IF;
 
-    -- Handle Referral Logic
-    IF (new.raw_user_meta_data->>'referred_by') IS NOT NULL AND (new.raw_user_meta_data->>'referred_by') <> '' THEN
-        -- Find the user who owns this referral code
+    -- 3. Sanitize input referral code
+    input_ref_code := UPPER(TRIM(new.raw_user_meta_data->>'referred_by'));
+    IF input_ref_code = '' THEN input_ref_code := NULL; END IF;
+
+    -- 4. Handle Referral Reward Logic
+    IF input_ref_code IS NOT NULL THEN
         SELECT id INTO referrer_id FROM public.profiles 
-        WHERE referral_code = UPPER(TRIM(new.raw_user_meta_data->>'referred_by'));
+        WHERE referral_code = input_ref_code;
 
         IF referrer_id IS NOT NULL THEN
-            -- Give reward to referrer
+            -- Credit Referrer
             UPDATE public.profiles 
             SET balance = balance + ref_bonus,
                 referral_count = referral_count + 1
             WHERE id = referrer_id;
 
-            -- Record transaction for referrer
+            -- Record transaction
             INSERT INTO public.transactions (user_id, type, amount, description)
-            VALUES (referrer_id, 'bonus', ref_bonus, 'Referral Bonus for new member: ' || (new.raw_user_meta_data->>'full_name'));
+            VALUES (referrer_id, 'bonus', ref_bonus, 'Bonus for referring ' || COALESCE(new.raw_user_meta_data->>'full_name', 'new member'));
         END IF;
     END IF;
 
-    -- Create the new profile
+    -- 5. Create Profile (Ensure this always happens)
     INSERT INTO public.profiles (
         id, 
         email, 
@@ -97,12 +101,17 @@ BEGIN
     VALUES (
         new.id,
         new.email,
-        COALESCE(new.raw_user_meta_data->>'full_name', 'Member'),
+        COALESCE(new.raw_user_meta_data->>'full_name', 'Riseii Member'),
         new_ref_code,
-        UPPER(TRIM(new.raw_user_meta_data->>'referred_by')),
-        10 -- Welcome bonus for the new user
+        input_ref_code,
+        10 -- Initial Welcome Bonus for the new user
     );
 
+    RETURN new;
+EXCEPTION WHEN OTHERS THEN
+    -- Fallback: If anything fails, still try to create a basic profile
+    INSERT INTO public.profiles (id, email, full_name, referral_code)
+    VALUES (new.id, new.email, 'Riseii Member', 'RP-' || SUBSTRING(new.id::TEXT, 1, 8));
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -114,7 +123,7 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ==========================================
--- 4. TASKS & PERMISSIONS
+-- 4. DEFAULT TASKS
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS public.tasks (
@@ -132,12 +141,19 @@ CREATE TABLE IF NOT EXISTS public.tasks (
 );
 
 INSERT INTO public.tasks (title, description, category, reward_amount, link, proof_type, copy_text, is_active, is_featured)
-VALUES ('Facebook Post (Official Promo)', 'আমাদের সাইট নিয়ে ফেসবুকে একটি পাবলিক পোস্ট করুন। পোস্টের স্ক্রিনশট প্রুফ হিসেবে জমা দিন।', 'facebook', 15, 'https://riseiipro.vercel.app', 'image', 'Riseii Pro-তে কাজ শুরু করলাম! আপনারাও যোগ দিন এবং প্রতিদিন ইনকাম করুন।', true, true)
+VALUES ('Facebook Wall Share', 'আমাদের প্লাটফর্ম নিয়ে আপনার ওয়ালে একটি পাবলিক পোস্ট করুন এবং স্ক্রিনশট দিন।', 'facebook', 15, 'https://riseiipro.vercel.app', 'image', 'Riseii Pro-তে জয়েন করে ইনকাম শুরু করলাম। আপনারাও জয়েন করুন!', true, true)
 ON CONFLICT DO NOTHING;
 
--- Policies
+-- ==========================================
+-- 5. POLICIES (Idempotent)
+-- ==========================================
+
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
 CREATE POLICY "Users can update own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;

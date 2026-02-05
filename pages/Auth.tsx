@@ -45,7 +45,7 @@ const Auth: React.FC = () => {
 
         const cleanReferralId = referralId.trim().toUpperCase() || null;
 
-        // CRITICAL: We use 'referred_by' to match the database trigger logic
+        // CRITICAL: Metadata keys must match the SQL handle_new_user trigger logic
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
@@ -58,7 +58,7 @@ const Auth: React.FC = () => {
         });
         
         if (error) throw error;
-        alert(t.signup_success);
+        alert('অ্যাকাউন্ট তৈরি হয়েছে! দয়া করে ইমেইল ভেরিফাই করুন অথবা লগইন ট্রাই করুন।');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -96,7 +96,7 @@ const Auth: React.FC = () => {
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t.full_name}</label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all" placeholder="আপনার নাম" />
+                <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all" placeholder="আপনার পুরো নাম" />
               </div>
             </div>
           )}
