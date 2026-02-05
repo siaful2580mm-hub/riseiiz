@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase.ts';
@@ -14,12 +13,21 @@ const Activation: React.FC = () => {
   const [method, setMethod] = useState('bkash');
   const [trxId, setTrxId] = useState('');
   const [pendingReq, setPendingReq] = useState<any>(null);
+  const [fee, setFee] = useState(ACTIVATION_FEE);
 
   useEffect(() => {
-    if (profile?.is_active) {
-      navigate('/wallet');
-      return;
-    }
+    const checkSettings = async () => {
+      const { data } = await supabase.from('system_settings').select('require_activation, activation_fee').single();
+      if (data) {
+        setFee(data.activation_fee);
+        if (!data.require_activation || profile?.is_active) {
+          navigate('/wallet');
+          return;
+        }
+      }
+    };
+    
+    if (profile) checkSettings();
     fetchPendingRequest();
   }, [profile, navigate]);
 
@@ -117,7 +125,7 @@ const Activation: React.FC = () => {
         <Info className="text-blue-400 shrink-0" size={20} />
         <div className="space-y-2">
           <p className="text-xs text-blue-100/70 leading-relaxed">
-            নিচের যেকোনো একটি নম্বরে "Send Money" এর মাধ্যমে ৳{ACTIVATION_FEE} পাঠিয়ে ট্রানজ্যাকশন আইডি (Transaction ID) এখানে দিন।
+            নিচের যেকোনো একটি নম্বরে "Send Money" এর মাধ্যমে ৳{fee} পাঠিয়ে ট্রানজ্যাকশন আইডি (Transaction ID) এখানে দিন।
           </p>
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">টাকা পাঠানোর নম্বরসমূহ:</p>

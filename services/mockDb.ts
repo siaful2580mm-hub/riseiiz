@@ -68,13 +68,17 @@ export const mockTasks: Task[] = [
 
 export const mockSubmissions: Submission[] = [];
 
+// Fix: Added missing properties 'global_notice', 'is_maintenance', and 'require_activation' to mockSettings to satisfy SystemSettings interface
 export const mockSettings: SystemSettings = {
   id: 1,
   notice_text: 'Welcome to Riseii Pro! Complete tasks daily to earn massive rewards. Minimum withdrawal is 250 BDT.',
   notice_link: 'https://t.me/riseiipro',
+  global_notice: '<h1>Welcome!</h1><p>Join our community today and start earning.</p>',
   banner_ads_code: '<div>Ad Space</div>',
   min_withdrawal: 250,
-  activation_fee: 30
+  activation_fee: 30,
+  is_maintenance: false,
+  require_activation: false
 };
 
 // Simple Mock Store

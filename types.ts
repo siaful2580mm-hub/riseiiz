@@ -1,4 +1,3 @@
-
 export type UserRole = 'user' | 'admin';
 export type KYCStatus = 'none' | 'pending' | 'verified';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
@@ -89,7 +88,10 @@ export interface SystemSettings {
   id: number;
   notice_text: string;
   notice_link: string;
+  global_notice: string;
   banner_ads_code: string;
   min_withdrawal: number;
   activation_fee: number;
+  is_maintenance: boolean;
+  require_activation: boolean;
 }

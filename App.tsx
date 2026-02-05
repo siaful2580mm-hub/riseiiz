@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
-import { isSupabaseConfigured } from './services/supabase.ts';
+import { isSupabaseConfigured, supabase } from './services/supabase.ts';
 import Layout from './components/Layout.tsx';
 import Dashboard from './pages/Dashboard.tsx';
 import Tasks from './pages/Tasks.tsx';
@@ -11,7 +11,8 @@ import Admin from './pages/Admin.tsx';
 import Auth from './pages/Auth.tsx';
 import KYC from './pages/KYC.tsx';
 import Activation from './pages/Activation.tsx';
-import { Loader2, AlertTriangle, ExternalLink, Zap, Terminal, RefreshCcw } from 'lucide-react';
+import Notice from './pages/Notice.tsx';
+import { Loader2, AlertTriangle, ExternalLink, Zap, Terminal, RefreshCcw, Wrench } from 'lucide-react';
 
 const SetupRequired: React.FC = () => (
   <div className="min-h-screen bg-[#05060f] flex items-center justify-center p-6 text-white">
@@ -36,24 +37,64 @@ const SetupRequired: React.FC = () => (
   </div>
 );
 
+const MaintenanceMode: React.FC = () => (
+  <div className="min-h-screen bg-[#05060f] flex items-center justify-center p-6 text-white text-center">
+    <div className="space-y-6 max-w-sm">
+      <div className="w-24 h-24 bg-amber-500/10 rounded-[2rem] flex items-center justify-center mx-auto border border-amber-500/20">
+         <Wrench size={48} className="text-amber-500" />
+      </div>
+      <div className="space-y-2">
+        <h2 className="text-2xl font-black uppercase tracking-tighter">Maintenance Mode</h2>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          The platform is currently undergoing scheduled maintenance to improve your experience. We will be back shortly!
+        </p>
+      </div>
+      <button 
+        onClick={() => window.location.reload()}
+        className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest"
+      >
+        Check Status
+      </button>
+    </div>
+  </div>
+);
+
 const AppContent: React.FC = () => {
-  const { user, loading, debugInfo } = useAuth();
+  const { user, profile, loading, debugInfo, signOut } = useAuth();
   const [showDebug, setShowDebug] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [checkingMaintenance, setCheckingMaintenance] = useState(true);
+
+  useEffect(() => {
+    const checkMaintenance = async () => {
+      try {
+        const { data } = await supabase.from('system_settings').select('is_maintenance').single();
+        if (data?.is_maintenance) {
+          setIsMaintenance(true);
+        }
+      } catch (e) {
+        console.error("Maintenance check error:", e);
+      } finally {
+        setCheckingMaintenance(false);
+      }
+    };
+    checkMaintenance();
+  }, []);
 
   useEffect(() => {
     let timer: any;
     if (loading) {
       timer = setTimeout(() => {
         setTimedOut(true);
-      }, 8000); // 8 seconds timeout
+      }, 8000);
     } else {
       setTimedOut(false);
     }
     return () => clearTimeout(timer);
   }, [loading]);
 
-  if (loading) {
+  if (loading || checkingMaintenance) {
     return (
       <div className="min-h-screen bg-[#05060f] flex flex-col items-center justify-center p-6">
         <div className="flex flex-col items-center gap-6 max-w-xs w-full">
@@ -64,35 +105,23 @@ const AppContent: React.FC = () => {
             <h1 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent">RISEII PRO</h1>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00f2ff]/60 animate-pulse">সংযোগ করা হচ্ছে...</p>
           </div>
-
           {timedOut && (
             <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <p className="text-[10px] text-red-400 font-bold uppercase text-center">সার্ভার থেকে রেসপন্স আসতে দেরি হচ্ছে</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="w-full py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10"
-              >
-                <RefreshCcw size={14} /> আবার চেষ্টা করুন
-              </button>
-              <button 
-                onClick={() => setShowDebug(!showDebug)}
-                className="w-full py-2 text-[8px] text-slate-500 font-black uppercase tracking-[0.2em] flex items-center justify-center gap-1"
-              >
-                <Terminal size={10} /> {showDebug ? "Debug Log লুকান" : "Debug Log দেখুন"}
-              </button>
-            </div>
-          )}
-
-          {showDebug && (
-            <div className="w-full bg-black/60 border border-white/5 p-4 rounded-xl font-mono text-[9px] text-emerald-500 overflow-y-auto max-h-40 space-y-1">
-              {debugInfo.map((log, i) => (
-                <div key={i} className="border-l border-emerald-500/30 pl-2 leading-tight">{log}</div>
-              ))}
+              <button onClick={() => window.location.reload()} className="w-full py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><RefreshCcw size={14} /> আবার চেষ্টা করুন</button>
+              <button onClick={() => setShowDebug(!showDebug)} className="w-full py-2 text-[8px] text-slate-500 font-black uppercase flex items-center justify-center gap-1"><Terminal size={10} /> Debug Log</button>
             </div>
           )}
         </div>
       </div>
     );
+  }
+
+  // If maintenance is on, and user is NOT admin/owner, show maintenance screen
+  const isOwner = user?.email === 'rakibulislamrovin@gmail.com';
+  const isAdmin = profile?.role === 'admin' || isOwner;
+  
+  if (isMaintenance && !isAdmin && user) {
+    return <MaintenanceMode />;
   }
 
   if (!user) {
@@ -109,6 +138,7 @@ const AppContent: React.FC = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="/kyc" element={<KYC />} />
           <Route path="/activation" element={<Activation />} />
+          <Route path="/notice" element={<Notice />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
