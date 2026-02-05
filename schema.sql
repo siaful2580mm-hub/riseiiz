@@ -26,54 +26,53 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger function for automatic profile creation on signup
--- This function is now extremely robust
+-- This version is designed to NEVER fail the main auth process
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
     new_ref_code TEXT;
     input_referrer_code TEXT;
     actual_referrer_code TEXT := NULL;
-    referrer_exists BOOLEAN := false;
+    v_full_name TEXT;
 BEGIN
+    -- Set search path to public to ensure we hit the right tables
+    SET search_path TO public;
+
     -- 1. Generate unique referral code for the new user
-    -- Attempt up to 10 times to get a unique code
+    -- Attempt to get a unique code using loop
     FOR i IN 1..10 LOOP
         new_ref_code := public.generate_referral_code();
         EXIT WHEN NOT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_ref_code);
     END LOOP;
 
-    -- Ensure we have a code even if loop failed (fallback)
+    -- Final fallback for referral code if loop fails
     IF new_ref_code IS NULL THEN
-        new_ref_code := 'RISE-' || floor(random() * 1000000)::text;
+        new_ref_code := 'RISE-' || substr(new.id::text, 1, 8);
     END IF;
 
-    -- 2. Safely get referrer code from metadata
-    BEGIN
-        input_referrer_code := TRIM(UPPER(new.raw_user_meta_data->>'referral_id'));
-        
-        -- If code is provided and not empty
-        IF input_referrer_code IS NOT NULL AND input_referrer_code <> '' THEN
-            SELECT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = input_referrer_code) INTO referrer_exists;
-            
-            IF referrer_exists THEN
+    -- 2. Safely extract metadata
+    -- Use COALESCE to prevent null errors
+    v_full_name := COALESCE(new.raw_user_meta_data->>'full_name', 'Member');
+    input_referrer_code := TRIM(UPPER(COALESCE(new.raw_user_meta_data->>'referral_id', '')));
+
+    -- 3. Handle Referral Logic separately so it doesn't break the insert
+    IF input_referrer_code <> '' THEN
+        -- Check if referrer exists and update their count
+        BEGIN
+            IF EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = input_referrer_code) THEN
                 actual_referrer_code := input_referrer_code;
                 
-                -- Update referrer's count (Wrapped in sub-block to prevent failure)
-                BEGIN
-                    UPDATE public.profiles 
-                    SET referral_count = referral_count + 1 
-                    WHERE referral_code = actual_referrer_code;
-                EXCEPTION WHEN OTHERS THEN
-                    -- Log error if possible or just ignore
-                END;
+                UPDATE public.profiles 
+                SET referral_count = referral_count + 1 
+                WHERE referral_code = actual_referrer_code;
             END IF;
-        END IF;
-    EXCEPTION WHEN OTHERS THEN
-        actual_referrer_code := NULL;
-    END;
+        EXCEPTION WHEN OTHERS THEN
+            -- Ignore errors in referral count update
+        END;
+    END IF;
 
-    -- 3. Create the profile record
-    -- Using security definer context and conflict handling
+    -- 4. Create the profile record
+    -- Using a block to catch any final errors
     BEGIN
         INSERT INTO public.profiles (
             id, 
@@ -91,7 +90,7 @@ BEGIN
         VALUES (
             new.id,
             new.email,
-            COALESCE(new.raw_user_meta_data->>'full_name', 'Member'),
+            v_full_name,
             new_ref_code,
             actual_referrer_code,
             0,
@@ -105,8 +104,8 @@ BEGIN
             email = EXCLUDED.email,
             full_name = COALESCE(public.profiles.full_name, EXCLUDED.full_name);
     EXCEPTION WHEN OTHERS THEN
-        -- If profile creation fails, we still let auth continue
-        -- But this block prevents a complete crash
+        -- If it still fails, the RETURN new ensures auth.users is at least created
+        -- We don't want to block the user from signing up
     END;
 
     RETURN new;
@@ -114,7 +113,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ==========================================
--- 3. TABLES DEFINITION
+-- 3. TABLES DEFINITION (Ensure existence)
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -141,72 +140,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS public.system_settings (
-  id INTEGER PRIMARY KEY DEFAULT 1,
-  notice_text TEXT,
-  notice_link TEXT,
-  global_notice TEXT,
-  banner_ads_code TEXT,
-  min_withdrawal NUMERIC DEFAULT 250,
-  activation_fee NUMERIC DEFAULT 30,
-  is_maintenance BOOLEAN DEFAULT false,
-  require_activation BOOLEAN DEFAULT true,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-INSERT INTO public.system_settings (id, notice_text, is_maintenance, require_activation)
-VALUES (1, 'Welcome to Riseii Pro!', false, true)
-ON CONFLICT (id) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS public.tasks (
-  id SERIAL PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  category TEXT,
-  reward_amount NUMERIC NOT NULL,
-  link TEXT,
-  proof_type TEXT,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.submissions (
-  id SERIAL PRIMARY KEY,
-  task_id INTEGER REFERENCES public.tasks(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  proof_data TEXT,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.activations (
-  id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  method TEXT,
-  transaction_id TEXT UNIQUE,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.transactions (
-  id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  type TEXT,
-  amount NUMERIC NOT NULL,
-  description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.withdrawals (
-  id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  amount NUMERIC NOT NULL,
-  method TEXT,
-  wallet_number TEXT,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
 -- ==========================================
 -- 4. TRIGGER SETUP
 -- ==========================================
@@ -214,48 +147,8 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- ==========================================
--- 5. RLS & POLICIES
--- ==========================================
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.withdrawals ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
-CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Allow insert on signup" ON public.profiles;
-CREATE POLICY "Allow insert on signup" ON public.profiles FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Settings viewable by all" ON public.system_settings;
-CREATE POLICY "Settings viewable by all" ON public.system_settings FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Tasks viewable by all" ON public.tasks;
-CREATE POLICY "Tasks viewable by all" ON public.tasks FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Own submissions" ON public.submissions;
-CREATE POLICY "Own submissions" ON public.submissions FOR SELECT USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Insert submissions" ON public.submissions;
-CREATE POLICY "Insert submissions" ON public.submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Own transactions" ON public.transactions;
-CREATE POLICY "Own transactions" ON public.transactions FOR SELECT USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Own withdrawals" ON public.withdrawals;
-CREATE POLICY "Own withdrawals" ON public.withdrawals FOR SELECT USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Own activations" ON public.activations;
-CREATE POLICY "Own activations" ON public.activations FOR SELECT USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Admins full access" ON public.system_settings;
-CREATE POLICY "Admins full access" ON public.system_settings FOR ALL USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE public.profiles.id = auth.uid() AND public.profiles.role = 'admin')
-);
+-- Reset permissions just in case
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, service_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;

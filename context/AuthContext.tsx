@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { Profile } from '../types.ts';
@@ -31,9 +32,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDebugInfo(prev => [...prev.slice(-14), log]);
   };
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, retryCount = 0): Promise<any> => {
     setProfileLoading(true);
-    addLog(`Fetching DB record for: ${userId}`);
+    addLog(`Fetching DB record for: ${userId} (Attempt ${retryCount + 1})`);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -47,9 +48,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (!data) {
-        addLog("CRITICAL WARNING: Profile record NOT FOUND in database table!");
+        addLog(`Profile NOT FOUND on attempt ${retryCount + 1}`);
+        // If not found, retry up to 2 times with a small delay
+        // Sometimes the trigger is slightly slower than the session update
+        if (retryCount < 2) {
+          await new Promise(r => setTimeout(r, 1500));
+          return fetchProfile(userId, retryCount + 1);
+        }
       } else {
-        addLog(`Profile Loaded: ${data.email} (${data.role})`);
+        addLog(`Profile Loaded: ${data.email}`);
       }
       
       return data;
@@ -65,13 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const u = session?.user ?? null;
     addLog(`Auth Status: ${u ? 'Logged In (' + u.email + ')' : 'Logged Out'}`);
     
-    // 1. Immediately update user state
     setUser(u);
-    
-    // 2. Stop the global app loading immediately to allow routing
     setLoading(false);
     
-    // 3. Background fetch the profile if user exists
     if (u) {
       const p = await fetchProfile(u.id);
       setProfile(p);
@@ -89,19 +92,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
-    addLog("Auth System Initializing...");
 
-    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (mounted) handleSession(session);
     }).catch(err => {
-      addLog(`Session Retrieval Error: ${err.message}`);
+      addLog(`Session Error: ${err.message}`);
       if (mounted) setLoading(false);
     });
 
-    // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      addLog(`Auth Event: ${event}`);
       if (mounted) handleSession(session);
     });
 
@@ -112,7 +111,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
-    addLog("Signing out...");
     setLoading(true);
     try {
       await supabase.auth.signOut();
