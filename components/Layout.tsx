@@ -16,8 +16,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data } = await supabase.from('system_settings').select('notice_link').single();
-        if (data?.notice_link) setSupportLink(data.notice_link);
+        const { data } = await supabase.from('system_settings').select('support_url').single();
+        if (data?.support_url) setSupportLink(data.support_url);
       } catch (e) {
         console.error("Error fetching settings:", e);
       }

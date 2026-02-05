@@ -70,7 +70,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Welcome Banner / SMS Style */}
+      {/* Welcome Banner */}
       {profile.balance === 10 && profile.referral_count === 0 && (
         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-4 rounded-3xl flex items-center gap-4 shadow-xl border border-white/10">
           <div className="bg-white/20 p-3 rounded-2xl shadow-inner">
