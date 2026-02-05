@@ -58,38 +58,49 @@ DECLARE
     new_ref_code TEXT;
     referrer_id UUID;
     ref_bonus NUMERIC;
-    input_ref_code TEXT;
+    extracted_ref_code TEXT;
 BEGIN
-    -- 1. Generate unique referral code (RP-XXXXX)
+    -- 1. Generate unique referral code for the new user (RP-XXXXX)
     new_ref_code := 'RP-' || UPPER(SUBSTRING(REPLACE(gen_random_uuid()::TEXT, '-', ''), 1, 8));
 
     -- 2. Get settings
     SELECT referral_reward INTO ref_bonus FROM public.system_settings WHERE id = 1;
     IF ref_bonus IS NULL THEN ref_bonus := 5; END IF;
 
-    -- 3. Sanitize input referral code
-    input_ref_code := UPPER(TRIM(new.raw_user_meta_data->>'referred_by'));
-    IF input_ref_code = '' THEN input_ref_code := NULL; END IF;
+    -- 3. Robustly extract referral code from metadata
+    -- Trying multiple potential keys for better compatibility
+    extracted_ref_code := COALESCE(
+        new.raw_user_meta_data->>'referred_by',
+        new.raw_user_meta_data->>'referral_id',
+        new.raw_user_meta_data->>'referrer'
+    );
+    
+    -- Clean the extracted code
+    IF extracted_ref_code IS NOT NULL THEN
+        extracted_ref_code := UPPER(TRIM(extracted_ref_code));
+        IF extracted_ref_code = '' THEN extracted_ref_code := NULL; END IF;
+    END IF;
 
-    -- 4. Handle Referral Reward Logic
-    IF input_ref_code IS NOT NULL THEN
+    -- 4. Handle Referrer Reward Logic
+    IF extracted_ref_code IS NOT NULL THEN
+        -- Find the referrer profile
         SELECT id INTO referrer_id FROM public.profiles 
-        WHERE referral_code = input_ref_code;
+        WHERE referral_code = extracted_ref_code;
 
         IF referrer_id IS NOT NULL THEN
-            -- Credit Referrer
+            -- Update Referrer Balance and Count
             UPDATE public.profiles 
             SET balance = balance + ref_bonus,
                 referral_count = referral_count + 1
             WHERE id = referrer_id;
 
-            -- Record transaction
+            -- Log Transaction for Referrer
             INSERT INTO public.transactions (user_id, type, amount, description)
-            VALUES (referrer_id, 'bonus', ref_bonus, 'Bonus for referring ' || COALESCE(new.raw_user_meta_data->>'full_name', 'new member'));
+            VALUES (referrer_id, 'bonus', ref_bonus, 'Referral Reward for: ' || COALESCE(new.raw_user_meta_data->>'full_name', 'new user'));
         END IF;
     END IF;
 
-    -- 5. Create Profile (Ensure this always happens)
+    -- 5. Create the Profile record
     INSERT INTO public.profiles (
         id, 
         email, 
@@ -101,17 +112,17 @@ BEGIN
     VALUES (
         new.id,
         new.email,
-        COALESCE(new.raw_user_meta_data->>'full_name', 'Riseii Member'),
+        COALESCE(new.raw_user_meta_data->>'full_name', 'Member'),
         new_ref_code,
-        input_ref_code,
-        10 -- Initial Welcome Bonus for the new user
+        extracted_ref_code, -- Save the clean referral code
+        10 -- Give joining bonus (optional)
     );
 
     RETURN new;
 EXCEPTION WHEN OTHERS THEN
-    -- Fallback: If anything fails, still try to create a basic profile
+    -- Safety Fallback: Ensure user can still log in even if referral logic fails
     INSERT INTO public.profiles (id, email, full_name, referral_code)
-    VALUES (new.id, new.email, 'Riseii Member', 'RP-' || SUBSTRING(new.id::TEXT, 1, 8));
+    VALUES (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'Member'), 'RP-' || SUBSTRING(new.id::TEXT, 1, 8));
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -123,29 +134,7 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ==========================================
--- 4. DEFAULT TASKS
--- ==========================================
-
-CREATE TABLE IF NOT EXISTS public.tasks (
-    id SERIAL PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT,
-    category TEXT,
-    reward_amount NUMERIC DEFAULT 0,
-    link TEXT,
-    proof_type TEXT DEFAULT 'image',
-    copy_text TEXT,
-    is_active BOOLEAN DEFAULT true,
-    is_featured BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-INSERT INTO public.tasks (title, description, category, reward_amount, link, proof_type, copy_text, is_active, is_featured)
-VALUES ('Facebook Wall Share', 'আমাদের প্লাটফর্ম নিয়ে আপনার ওয়ালে একটি পাবলিক পোস্ট করুন এবং স্ক্রিনশট দিন।', 'facebook', 15, 'https://riseiipro.vercel.app', 'image', 'Riseii Pro-তে জয়েন করে ইনকাম শুরু করলাম। আপনারাও জয়েন করুন!', true, true)
-ON CONFLICT DO NOTHING;
-
--- ==========================================
--- 5. POLICIES (Idempotent)
+-- 4. POLICIES (Idempotent)
 -- ==========================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

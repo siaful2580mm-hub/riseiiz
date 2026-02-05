@@ -16,11 +16,13 @@ const Auth: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    // Capture referral code from URL if present
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) {
-      setReferralId(ref.trim().toUpperCase());
-      setIsSignUp(true);
+      const cleanRef = ref.trim().toUpperCase();
+      setReferralId(cleanRef);
+      setIsSignUp(true); // Default to sign up if ref link used
     }
   }, []);
 
@@ -43,22 +45,22 @@ const Auth: React.FC = () => {
           return;
         }
 
-        const cleanReferralId = referralId.trim().toUpperCase() || null;
+        const cleanRef = referralId.trim().toUpperCase() || null;
 
-        // CRITICAL: Metadata keys must match the SQL handle_new_user trigger logic
+        // CRITICAL: Send metadata that matches the SQL trigger expectations
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
             data: { 
               full_name: fullName.trim(),
-              referred_by: cleanReferralId
+              referred_by: cleanRef
             }
           }
         });
         
         if (error) throw error;
-        alert('অ্যাকাউন্ট তৈরি হয়েছে! দয়া করে ইমেইল ভেরিফাই করুন অথবা লগইন ট্রাই করুন।');
+        alert('অ্যাকাউন্ট তৈরি হয়েছে! দয়া করে ইমেইল ভেরিফাই করুন অথবা লগইন ট্রাই করুন। যদি ইমেইল না পান তবে স্প্যাম ফোল্ডার চেক করুন।');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -122,7 +124,13 @@ const Auth: React.FC = () => {
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">রেফারেল কোড (ঐচ্ছিক)</label>
               <div className="relative">
                 <Gift className="absolute left-4 top-1/2 -translate-y-1/2 text-[#00f2ff]/30" size={18} />
-                <input type="text" value={referralId} onChange={(e) => setReferralId(e.target.value)} className="w-full bg-black/40 border border-[#00f2ff]/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all font-mono uppercase" placeholder="RP-XXXX" />
+                <input 
+                  type="text" 
+                  value={referralId} 
+                  onChange={(e) => setReferralId(e.target.value)} 
+                  className="w-full bg-black/40 border border-[#00f2ff]/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all font-mono uppercase" 
+                  placeholder="যেমন: RP-8B2A9C" 
+                />
               </div>
             </div>
           )}
