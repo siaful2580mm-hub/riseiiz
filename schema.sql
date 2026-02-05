@@ -13,6 +13,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 -- 2. Trigger function to create a profile on signup and handle referrals
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
