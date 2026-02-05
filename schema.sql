@@ -54,7 +54,13 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Tasks are viewable by everyone" ON tasks FOR SELECT USING (true);
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tasks' AND policyname = 'Tasks are viewable by everyone') THEN
+        CREATE POLICY "Tasks are viewable by everyone" ON tasks FOR SELECT USING (true);
+    END IF;
+END $$;
 
 -- SUBMISSIONS
 CREATE TABLE IF NOT EXISTS submissions (
@@ -67,8 +73,16 @@ CREATE TABLE IF NOT EXISTS submissions (
 );
 
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'submissions' AND policyname = 'Users can view own submissions') THEN
+        CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'submissions' AND policyname = 'Users can insert own submissions') THEN
+        CREATE POLICY "Users can insert own submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
+END $$;
 
 -- SYSTEM SETTINGS
 CREATE TABLE IF NOT EXISTS system_settings (
@@ -81,18 +95,23 @@ CREATE TABLE IF NOT EXISTS system_settings (
 );
 
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
 
--- INITIAL DATA (Ensures content is visible)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'system_settings' AND policyname = 'Settings are readable by all.') THEN
+        CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
+    END IF;
+END $$;
+
+-- INITIAL DATA
 INSERT INTO system_settings (id, notice_text, notice_link, min_withdrawal, activation_fee)
 VALUES (1, 'Riseii Pro-তে স্বাগতম! কাজ শুরু করতে আমাদের টেলিগ্রাম গ্রুপে জয়েন করুন।', 'https://t.me/riseiipro', 250, 30)
 ON CONFLICT (id) DO UPDATE SET notice_text = EXCLUDED.notice_text;
 
 INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
 VALUES 
-('আমাদের ফেসবুক পেজ লাইক করুন', 'পেজে গিয়ে লাইক দিয়ে স্ক্রিনশট দিন।', 'facebook', 5.00, 'https://facebook.com', 'image'),
-('ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', 'চ্যানেলটি সাবস্ক্রাইব করে বেল বাটন অন করুন এবং প্রমাণ দিন।', 'youtube', 8.00, 'https://youtube.com', 'image'),
-('ইনস্টাগ্রাম ফলো করুন', 'আমাদের ইনস্টাগ্রাম প্রোফাইলটি ফলো করুন।', 'instagram', 4.00, 'https://instagram.com', 'image')
+('ফেসবুক পেজ লাইক করুন', 'পেজে লাইক দিয়ে প্রমাণ জমা দিন।', 'facebook', 5.00, 'https://facebook.com', 'image'),
+('ইউটিউব চ্যানেল সাবস্ক্রাইব', 'চ্যানেলটি সাবস্ক্রাইব করে স্ক্রিনশট দিন।', 'youtube', 8.00, 'https://youtube.com', 'image')
 ON CONFLICT DO NOTHING;
 
 -- TRIGGER FUNCTION
