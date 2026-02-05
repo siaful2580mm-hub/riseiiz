@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { TrendingUp, Users, ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap } from 'lucide-react';
+import { TrendingUp, ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SystemSettings, Task } from '../types.ts';
 
@@ -13,31 +12,22 @@ const Dashboard: React.FC = () => {
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const isOwner = user?.email === 'rakibulislamrovin@gmail.com';
-  const isAdmin = (profile?.role === 'admin') || isOwner;
+  const isAdmin = profile?.role === 'admin' || user?.email === 'rakibulislamrovin@gmail.com';
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [settingsRes, tasksRes] = await Promise.allSettled([
-          supabase.from('system_settings').select('*').single(),
-          supabase.from('tasks').select('*').eq('is_active', true).limit(3)
-        ]);
+        const { data: setts } = await supabase.from('system_settings').select('*').maybeSingle();
+        if (setts) setSettings(setts);
 
-        if (settingsRes.status === 'fulfilled' && settingsRes.value.data) {
-          setSettings(settingsRes.value.data);
-        }
-        
-        if (tasksRes.status === 'fulfilled' && tasksRes.value.data) {
-          setRecentTasks(tasksRes.value.data);
-        }
+        const { data: tks } = await supabase.from('tasks').select('*').eq('is_active', true).limit(5);
+        if (tks) setRecentTasks(tks);
       } catch (err) {
-        console.error("Error fetching dashboard data:", err);
+        console.error("Dashboard Fetch Error:", err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
@@ -51,10 +41,10 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {isAdmin && (
-        <Link to="/admin" className="block animate-in fade-in slide-in-from-top duration-500">
-          <div className="bg-gradient-to-r from-[#7b61ff] to-[#00f2ff] p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-[#00f2ff]/20">
+        <Link to="/admin" className="block">
+          <div className="bg-gradient-to-r from-[#7b61ff] to-[#00f2ff] p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-[#00f2ff]/20 active:scale-95 transition-all">
             <div className="flex items-center gap-3">
               <div className="bg-white/20 p-2 rounded-xl">
                 <ShieldAlert className="text-white" size={24} />
@@ -64,9 +54,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-white text-[10px] font-bold uppercase tracking-widest opacity-80">পুরো সিস্টেম আপনার নিয়ন্ত্রণে</p>
               </div>
             </div>
-            <div className="bg-white/20 p-2 rounded-full">
-               <ArrowRight className="text-white" size={20} />
-            </div>
+            <ArrowRight className="text-white" size={20} />
           </div>
         </Link>
       )}
@@ -94,24 +82,18 @@ const Dashboard: React.FC = () => {
 
       <div className="grid grid-cols-2 gap-4">
         <GlassCard className="bg-gradient-to-br from-[#00f2ff]/10 to-transparent border-[#00f2ff]/20">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1">{t.total_balance}</span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-black text-[#00f2ff]">৳{profile?.balance?.toFixed(2) || '0.00'}</span>
-            </div>
-            <div className="flex items-center gap-1 mt-3 text-[9px] text-emerald-500 font-black uppercase tracking-widest">
-              <TrendingUp size={10} /> লাইভ আপডেট
-            </div>
+          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.total_balance}</span>
+          <span className="text-2xl font-black text-[#00f2ff]">৳{profile?.balance?.toFixed(2) || '0.00'}</span>
+          <div className="flex items-center gap-1 mt-3 text-[9px] text-emerald-500 font-black uppercase tracking-widest">
+            <TrendingUp size={10} /> লাইভ আপডেট
           </div>
         </GlassCard>
         <GlassCard className="bg-gradient-to-br from-[#7b61ff]/10 to-transparent border-[#7b61ff]/20">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1">{t.referrals}</span>
-            <span className="text-2xl font-black text-[#7b61ff]">{profile?.referral_count || 0}</span>
-            <Link to="/profile" className="text-[9px] text-[#7b61ff] font-black mt-3 flex items-center gap-1 hover:text-white transition-colors uppercase tracking-widest">
-              কোড শেয়ার করুন <ArrowRight size={10} />
-            </Link>
-          </div>
+          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.referrals}</span>
+          <span className="text-2xl font-black text-[#7b61ff]">{profile?.referral_count || 0}</span>
+          <Link to="/profile" className="text-[9px] text-[#7b61ff] font-black mt-3 flex items-center gap-1 hover:text-white transition-colors uppercase tracking-widest">
+            কোড শেয়ার করুন <ArrowRight size={10} />
+          </Link>
         </GlassCard>
       </div>
 
@@ -140,16 +122,14 @@ const Dashboard: React.FC = () => {
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{task.category}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                       <span className="text-[#00f2ff] font-black text-lg">৳{task.reward_amount}</span>
-                    </div>
+                    <span className="text-[#00f2ff] font-black text-lg">৳{task.reward_amount}</span>
                   </div>
                 </GlassCard>
               </Link>
             ))
           ) : (
             <div className="text-center py-12 glass rounded-2xl border-dashed border-white/5">
-              <p className="text-xs text-slate-500 font-medium italic">বর্তমানে কোনো কাজ নেই। কিছুক্ষণ পর আবার চেক করুন।</p>
+              <p className="text-xs text-slate-500 font-medium italic">বর্তমানে কোনো কাজ নেই। এডমিন ডাটা যোগ করলে এখানে দেখা যাবে।</p>
             </div>
           )}
         </div>

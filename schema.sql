@@ -1,4 +1,3 @@
-
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -31,20 +30,45 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
-    -- Standard Policies
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Public profiles are viewable by everyone.') THEN
         CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Users can update own profile.') THEN
         CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
     END IF;
-    -- Admin Policies
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Admins can update all profiles.') THEN
-        CREATE POLICY "Admins can update all profiles." ON profiles FOR UPDATE USING (
-          EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
-        );
-    END IF;
 END $$;
+
+-- TASKS
+CREATE TABLE IF NOT EXISTS tasks (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT NOT NULL,
+  reward_amount NUMERIC NOT NULL,
+  link TEXT,
+  proof_type TEXT DEFAULT 'image',
+  copy_text TEXT,
+  image_url TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tasks are viewable by everyone" ON tasks FOR SELECT USING (true);
+
+-- SUBMISSIONS
+CREATE TABLE IF NOT EXISTS submissions (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  proof_data TEXT,
+  status TEXT CHECK (status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own submissions" ON submissions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own submissions" ON submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- SYSTEM SETTINGS
 CREATE TABLE IF NOT EXISTS system_settings (
@@ -57,19 +81,21 @@ CREATE TABLE IF NOT EXISTS system_settings (
 );
 
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'system_settings' AND policyname = 'Settings are readable by all.') THEN
-        CREATE POLICY "Settings are readable by all." ON system_settings FOR SELECT USING (true);
-    END IF;
-END $$;
+-- INITIAL DATA (Ensures content is visible)
+INSERT INTO system_settings (id, notice_text, notice_link, min_withdrawal, activation_fee)
+VALUES (1, 'Riseii Pro-তে স্বাগতম! কাজ শুরু করতে আমাদের টেলিগ্রাম গ্রুপে জয়েন করুন।', 'https://t.me/riseiipro', 250, 30)
+ON CONFLICT (id) DO UPDATE SET notice_text = EXCLUDED.notice_text;
 
-INSERT INTO system_settings (id, notice_text, min_withdrawal, activation_fee)
-VALUES (1, 'Riseii Pro-তে স্বাগতম! প্রতিদিন কাজ করে ইনকাম করুন।', 250, 30)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
+VALUES 
+('আমাদের ফেসবুক পেজ লাইক করুন', 'পেজে গিয়ে লাইক দিয়ে স্ক্রিনশট দিন।', 'facebook', 5.00, 'https://facebook.com', 'image'),
+('ইউটিউব চ্যানেল সাবস্ক্রাইব করুন', 'চ্যানেলটি সাবস্ক্রাইব করে বেল বাটন অন করুন এবং প্রমাণ দিন।', 'youtube', 8.00, 'https://youtube.com', 'image'),
+('ইনস্টাগ্রাম ফলো করুন', 'আমাদের ইনস্টাগ্রাম প্রোফাইলটি ফলো করুন।', 'instagram', 4.00, 'https://instagram.com', 'image')
+ON CONFLICT DO NOTHING;
 
--- ROBUST NEW USER HANDLER
+-- TRIGGER FUNCTION
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
@@ -77,51 +103,26 @@ DECLARE
   new_code TEXT;
   is_unique BOOLEAN := false;
 BEGIN
-  -- 1. Determine Referrer
   IF (NEW.raw_user_meta_data->>'referral_id') IS NOT NULL AND (NEW.raw_user_meta_data->>'referral_id') <> '' THEN
-    SELECT id INTO target_referrer_id 
-    FROM public.profiles 
-    WHERE referral_code = upper(NEW.raw_user_meta_data->>'referral_id')
-    LIMIT 1;
+    SELECT id INTO target_referrer_id FROM public.profiles WHERE referral_code = upper(NEW.raw_user_meta_data->>'referral_id') LIMIT 1;
   END IF;
 
-  -- 2. Generate Truly Unique Referral Code
   WHILE NOT is_unique LOOP
     new_code := upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 8));
     SELECT NOT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_code) INTO is_unique;
   END LOOP;
 
-  -- 3. Insert Profile
   INSERT INTO public.profiles (id, email, full_name, role, referral_code, referred_by)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Member'),
-    CASE WHEN NEW.email = 'rakibulislamrovin@gmail.com' THEN 'admin' ELSE 'user' END,
-    new_code,
-    target_referrer_id
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    email = EXCLUDED.email,
-    full_name = EXCLUDED.full_name;
+  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'full_name', 'Member'), CASE WHEN NEW.email = 'rakibulislamrovin@gmail.com' THEN 'admin' ELSE 'user' END, new_code, target_referrer_id)
+  ON CONFLICT (id) DO NOTHING;
 
-  -- 4. Update Referrer Stats
   IF target_referrer_id IS NOT NULL THEN
-    UPDATE public.profiles 
-    SET referral_count = referral_count + 1 
-    WHERE id = target_referrer_id;
+    UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = target_referrer_id;
   END IF;
 
-  RETURN NEW;
-EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- Admin check
-UPDATE public.profiles SET role = 'admin' WHERE email = 'rakibulislamrovin@gmail.com';
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
