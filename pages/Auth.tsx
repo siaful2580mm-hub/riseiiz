@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
 import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle, Gift } from 'lucide-react';
-import { TRANSLATIONS } from '../constants.tsx';
+import { TRANSLATIONS, DAILY_SIGNUP_LIMIT } from '../constants.tsx';
 
 const Auth: React.FC = () => {
   const t = TRANSLATIONS.bn;
@@ -30,6 +30,21 @@ const Auth: React.FC = () => {
     setErrorMsg(null);
     try {
       if (isSignUp) {
+        // Check daily signup limit
+        const today = new Date().toISOString().split('T')[0];
+        const { count, error: countError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', today);
+
+        if (countError) throw countError;
+
+        if (count !== null && count >= DAILY_SIGNUP_LIMIT) {
+          setErrorMsg(t.signup_limit_reached);
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
@@ -40,7 +55,14 @@ const Auth: React.FC = () => {
             }
           }
         });
-        if (error) throw error;
+        
+        if (error) {
+          if (error.message.includes('Database error saving new user')) {
+            throw new Error('অ্যাকাউন্ট তৈরিতে ডাটাবেস এরর হয়েছে। দয়া করে এডমিনকে জানান অথবা কিছুক্ষণ পর চেষ্টা করুন।');
+          }
+          throw error;
+        }
+        
         alert(t.signup_success);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -49,7 +71,7 @@ const Auth: React.FC = () => {
     } catch (error: any) {
       console.error('Auth error:', error);
       if (error.message === 'Failed to fetch') {
-        setErrorMsg('সংযোগ ত্রুটি: সুপাবেস সার্ভারে পৌঁছানো যাচ্ছে না।');
+        setErrorMsg('সংযোগ ত্রুটি: সুপাবেস সার্ভারে পৌঁছানো যাচ্ছে না। আপনার ইন্টারনেট চেক করুন।');
       } else if (error.message === 'Invalid login credentials') {
         setErrorMsg('ভুল ইমেইল অথবা পাসওয়ার্ড। আপনার কি কোনো অ্যাকাউন্ট আছে? না থাকলে সাইন আপ করুন।');
       } else {

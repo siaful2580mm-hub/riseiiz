@@ -216,36 +216,61 @@ INSERT INTO system_settings (id, notice_text, min_withdrawal, activation_fee)
 VALUES (1, 'Welcome to Riseii Pro! Complete tasks to earn.', 250, 30)
 ON CONFLICT (id) DO NOTHING;
 
+-- ROBUST NEW USER HANDLER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
     assigned_role TEXT := 'user';
-    referrer_id UUID;
+    referrer_id UUID := NULL;
     input_ref_code TEXT;
+    final_referral_code TEXT;
 BEGIN
+  -- Admin check by email
   IF NEW.email = 'rakibulislamrovin@gmail.com' THEN
     assigned_role := 'admin';
   END IF;
 
+  -- Referral processing
   input_ref_code := NEW.raw_user_meta_data->>'referral_id';
 
   IF input_ref_code IS NOT NULL AND input_ref_code <> '' THEN
-    SELECT id INTO referrer_id FROM public.profiles WHERE referral_code = upper(input_ref_code);
+    SELECT id INTO referrer_id 
+    FROM public.profiles 
+    WHERE referral_code = upper(input_ref_code)
+    LIMIT 1;
   END IF;
 
-  INSERT INTO public.profiles (id, email, full_name, referral_code, role, referred_by)
-  VALUES (
-    NEW.id, 
-    NEW.email, 
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Member'),
-    upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 8)),
-    assigned_role,
-    referrer_id
-  );
+  -- Generate unique referral code for the new user
+  final_referral_code := upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 8));
 
-  IF referrer_id IS NOT NULL THEN
-    UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = referrer_id;
-  END IF;
+  -- Insert profile with safety exception
+  BEGIN
+    INSERT INTO public.profiles (id, email, full_name, referral_code, role, referred_by)
+    VALUES (
+      NEW.id, 
+      NEW.email, 
+      COALESCE(NEW.raw_user_meta_data->>'full_name', 'Member'),
+      final_referral_code,
+      assigned_role,
+      referrer_id
+    );
+
+    -- Increment referrer count
+    IF referrer_id IS NOT NULL THEN
+      UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = referrer_id;
+    END IF;
+
+  EXCEPTION WHEN OTHERS THEN
+    -- Fallback basic insert if anything fails (to ensure user can at least sign up)
+    INSERT INTO public.profiles (id, email, full_name, referral_code, role)
+    VALUES (
+      NEW.id, 
+      NEW.email, 
+      COALESCE(NEW.raw_user_meta_data->>'full_name', 'Member'),
+      final_referral_code,
+      assigned_role
+    );
+  END;
 
   RETURN NEW;
 END;
@@ -256,6 +281,7 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- Ensure admin is set
 UPDATE public.profiles 
 SET role = 'admin' 
 WHERE email = 'rakibulislamrovin@gmail.com';
