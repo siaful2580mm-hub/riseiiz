@@ -10,6 +10,7 @@ interface AuthContextType {
   t: any;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  debugInfo: string[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,10 +19,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   const t = TRANSLATIONS.bn;
 
+  const addLog = (msg: string) => {
+    console.log(`[AuthContext] ${msg}`);
+    setDebugInfo(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
+  };
+
   const fetchProfile = async (userId: string) => {
+    addLog(`Fetching profile for: ${userId}`);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -30,18 +38,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
       
       if (error) {
+        addLog(`DB Error: ${error.message}`);
         console.error('Database error fetching profile:', error);
         return null;
       }
 
       if (!data) {
-        console.log('Profile missing for user:', userId);
+        addLog(`No profile record found in table for ${userId}`);
         return null;
       }
 
+      addLog(`Profile loaded successfully for ${data.email}`);
       return data;
     } catch (err) {
-      console.error('Critical fetchProfile error:', err);
+      addLog(`Critical fetch crash: ${err instanceof Error ? err.message : 'Unknown'}`);
       return null;
     }
   };
@@ -55,30 +65,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    addLog("Initializing Auth Module...");
 
     const handleSession = async (session: any) => {
       const u = session?.user ?? null;
+      addLog(`Session update. User: ${u ? u.email : 'Guest'}`);
+      
       if (mounted) setUser(u);
       
       if (u) {
         const p = await fetchProfile(u.id);
-        if (mounted) setProfile(p);
+        if (mounted) {
+          setProfile(p);
+          addLog(p ? "Profile state updated" : "Profile state is NULL");
+        }
       } else {
         if (mounted) setProfile(null);
       }
       
-      if (mounted) setLoading(false);
+      if (mounted) {
+        setLoading(false);
+        addLog("Loading state set to FALSE");
+      }
     };
 
     // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        addLog(`Session Fetch Error: ${error.message}`);
+        if (mounted) setLoading(false);
+        return;
+      }
+      addLog("Initial session retrieved");
       if (mounted) handleSession(session);
     }).catch(err => {
-      console.error("Session check error:", err);
+      addLog(`Critical Session Crash: ${err.message}`);
       if (mounted) setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      addLog(`Auth State Change: ${event}`);
       if (mounted) handleSession(session);
     });
 
@@ -89,15 +115,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
+    addLog("Signing out...");
     setLoading(true);
     await supabase.auth.signOut();
     setProfile(null);
     setUser(null);
     setLoading(false);
+    addLog("Signed out completed");
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, t, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, t, signOut, refreshProfile, debugInfo }}>
       {children}
     </AuthContext.Provider>
   );
