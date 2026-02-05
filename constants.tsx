@@ -12,7 +12,7 @@ export const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 export const MIN_WITHDRAWAL = 250;
-export const REFERRAL_BONUS = 5;
+export const REFERRAL_BONUS = 15;
 export const ACTIVATION_FEE = 30;
 export const MIN_REFERRALS_FOR_WITHDRAW = 3;
 export const DAILY_SIGNUP_LIMIT = 200;
@@ -91,7 +91,7 @@ export const TRANSLATIONS = {
     submit_info: "তথ্য জমা দিন",
     signup_limit_reached: "দুঃখিত, আজকের সাইন আপের সীমা পূর্ণ হয়ে গেছে। দয়া করে আগামীকাল আবার চেষ্টা করুন।",
     ref_history: "রেফারাল হিস্ট্রি",
-    welcome_msg: "স্বাগতম! আমরা আপনাকে ৳১০ বোনাস দিয়েছি।",
+    welcome_msg: "স্বাগতম! আমরা আপনাকে ৳১৫ বোনাস দিয়েছি।",
     no_ref_msg: "এখনও কাউকে রেফার করেননি।"
   }
 };

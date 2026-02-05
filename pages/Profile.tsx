@@ -47,44 +47,51 @@ const Profile: React.FC = () => {
 
     setIsApplying(true);
     try {
-      // Find the referrer
       const { data: referrer, error: refError } = await supabase
         .from('profiles')
         .select('id, balance, referral_count')
         .eq('referral_code', cleanCode)
         .single();
 
-      if (refError || !referrer) {
-        throw new Error("Invalid referral code.");
-      }
+      if (refError || !referrer) throw new Error("Invalid referral code.");
 
-      // Fetch reward amount
       const { data: settings } = await supabase.from('system_settings').select('referral_reward').single();
-      const bonus = settings?.referral_reward || 5;
+      const bonus = settings?.referral_reward || 15;
 
-      // Update current user (mark as referred)
+      // 1. Update Current User (Referree gets bonus)
       const { error: userUpdateErr } = await supabase
         .from('profiles')
-        .update({ referred_by: cleanCode })
+        .update({ 
+          referred_by: cleanCode,
+          balance: (profile.balance || 0) + bonus 
+        })
         .eq('id', profile.id);
       
       if (userUpdateErr) throw userUpdateErr;
 
-      // Update referrer balance and count
+      // 2. Update Referrer (Referrer gets bonus)
       await supabase.from('profiles').update({
         balance: referrer.balance + bonus,
         referral_count: (referrer.referral_count || 0) + 1
       }).eq('id', referrer.id);
 
-      // Log transaction for referrer
-      await supabase.from('transactions').insert({
-        user_id: referrer.id,
-        type: 'bonus',
-        amount: bonus,
-        description: `Referral bonus for inviting ${profile.email}`
-      });
+      // 3. Log Transactions
+      await supabase.from('transactions').insert([
+        {
+          user_id: referrer.id,
+          type: 'bonus',
+          amount: bonus,
+          description: `Referral bonus for inviting ${profile.email}`
+        },
+        {
+          user_id: profile.id,
+          type: 'bonus',
+          amount: bonus,
+          description: `Referral bonus for joining via ${cleanCode}`
+        }
+      ]);
 
-      alert(`Referral code applied! ৳${bonus} has been sent to your friend.`);
+      alert(`Success! You and your friend both received ৳${bonus} bonus.`);
       setInputRefCode('');
       refreshProfile();
     } catch (err: any) {
@@ -142,14 +149,13 @@ const Profile: React.FC = () => {
           </GlassCard>
         )}
 
-        {/* Enter Referral Code Section - Only show if not referred yet */}
         {!profile.referred_by && (
           <GlassCard className="border-amber-500/30 bg-amber-500/5 space-y-4">
             <div className="flex items-center gap-3">
               <Gift className="text-amber-400" size={24} />
               <div>
                 <h3 className="text-sm font-black text-white uppercase tracking-tight">Claim Referral Bonus</h3>
-                <p className="text-[10px] text-slate-400">আপনার বন্ধুর রেফারেল কোড দিন এবং তাকে ৫ টাকা বোনাস দিন।</p>
+                <p className="text-[10px] text-slate-400">রেফার কোড ব্যবহার করলে আপনি এবং আপনার বন্ধু দুজনেই ১৫ টাকা পাবেন!</p>
               </div>
             </div>
             <div className="flex gap-2">

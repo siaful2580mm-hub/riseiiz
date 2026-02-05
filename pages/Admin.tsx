@@ -122,6 +122,17 @@ const Admin: React.FC = () => {
     } catch (e: any) { alert(e.message); }
   };
 
+  const deleteUser = async (user: Profile) => {
+    if (!confirm(`Are you sure you want to PERMANENTLY delete user ${user.email}? This cannot be undone.`)) return;
+    try {
+      const { error } = await supabase.from('profiles').delete().eq('id', user.id);
+      if (error) throw error;
+      alert('User profile deleted.');
+      fetchData();
+      fetchAdminStats();
+    } catch (e: any) { alert(e.message); }
+  };
+
   return (
     <div className="space-y-6 pb-32">
       <div className="flex flex-col gap-4">
@@ -231,24 +242,36 @@ const Admin: React.FC = () => {
                  />
               </div>
               {users.map(u => (
-                <GlassCard key={u.id} className="flex justify-between items-center border-white/5">
-                   <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black ${u.is_banned ? 'bg-red-500 text-white' : 'bg-white/5 text-slate-500'}`}>
-                        {u.is_banned ? <UserX size={20} /> : u.email[0].toUpperCase()}
+                <GlassCard key={u.id} className="flex flex-col gap-4 border-white/5">
+                   <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black ${u.is_banned ? 'bg-red-500 text-white' : 'bg-white/5 text-slate-500'}`}>
+                           {u.is_banned ? <UserX size={20} /> : u.email[0].toUpperCase()}
+                         </div>
+                         <div>
+                            <p className="font-bold text-sm">{u.full_name || 'No Name'}</p>
+                            <p className="text-[10px] text-slate-500">{u.email}</p>
+                            {u.referred_by && <p className="text-[8px] text-blue-400 uppercase font-black">Ref by: {u.referred_by}</p>}
+                         </div>
                       </div>
-                      <div>
-                         <p className="font-bold text-sm">{u.full_name || 'No Name'}</p>
-                         <p className="text-[10px] text-slate-500">{u.email}</p>
-                         {u.referred_by && <p className="text-[8px] text-blue-400 uppercase font-black">Ref by: {u.referred_by}</p>}
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-4">
                       <div className="text-right">
                          <p className="text-sm font-black text-emerald-400">৳{u.balance}</p>
                          <p className="text-[10px] text-slate-500">Refs: {u.referral_count}</p>
                       </div>
-                      <button onClick={() => toggleUserBan(u)} className={`p-2 rounded-lg ${u.is_banned ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'}`}>
-                         {u.is_banned ? <UserCheck size={18} /> : <UserX size={18} />}
+                   </div>
+                   
+                   <div className="flex gap-2 pt-2 border-t border-white/5">
+                      <button 
+                        onClick={() => toggleUserBan(u)} 
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${u.is_banned ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-500'}`}
+                      >
+                         {u.is_banned ? <><UserCheck size={14} /> UNBAN</> : <><UserX size={14} /> BAN</>}
+                      </button>
+                      <button 
+                        onClick={() => deleteUser(u)} 
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/10 text-red-500 text-[10px] font-black uppercase transition-all"
+                      >
+                         <Trash2 size={14} /> DELETE
                       </button>
                    </div>
                 </GlassCard>
