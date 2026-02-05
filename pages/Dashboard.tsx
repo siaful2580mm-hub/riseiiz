@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { TrendingUp, ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap } from 'lucide-react';
+import { TrendingUp, ExternalLink, Megaphone, ArrowRight, CheckSquare, Loader2, ShieldAlert, Zap, UserX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SystemSettings, Task } from '../types.ts';
 
 const Dashboard: React.FC = () => {
-  const { profile, user, t } = useAuth();
+  const { profile, user, t, loading: authLoading } = useAuth();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,28 +17,41 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log("Fetching dashboard data...");
-        const { data: setts, error: sErr } = await supabase.from('system_settings').select('*').maybeSingle();
-        if (sErr) throw sErr;
-        if (setts) setSettings(setts);
+        const [settingsRes, tasksRes] = await Promise.all([
+          supabase.from('system_settings').select('*').maybeSingle(),
+          supabase.from('tasks').select('*').eq('is_active', true).limit(5)
+        ]);
 
-        const { data: tks, error: tErr } = await supabase.from('tasks').select('*').eq('is_active', true).limit(5);
-        if (tErr) throw tErr;
-        if (tks) setRecentTasks(tks);
+        if (settingsRes.data) setSettings(settingsRes.data);
+        if (tasksRes.data) setRecentTasks(tasksRes.data);
       } catch (err) {
         console.error("Dashboard Fetch Error:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, []);
 
-  if (loading) {
+    if (!authLoading) {
+      fetchData();
+    }
+  }, [authLoading]);
+
+  if (authLoading || loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 space-y-4">
         <Loader2 className="animate-spin text-[#00f2ff]" size={40} />
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">আপনার ড্যাশবোর্ড লোড হচ্ছে...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">তথ্য লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
+  // If auth finished but profile is still null, it's a critical error
+  if (!profile) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+        <UserX size={48} className="text-red-500 opacity-50" />
+        <h2 className="text-xl font-bold">প্রোফাইল পাওয়া যায়নি</h2>
+        <p className="text-slate-400 max-w-xs text-sm">আপনার অ্যাকাউন্টটি ঠিকমতো তৈরি হয়নি। অনুগ্রহ করে লগআউট করে আবার চেষ্টা করুন অথবা এডমিনের সাথে যোগাযোগ করুন।</p>
       </div>
     );
   }
@@ -86,14 +99,14 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-2 gap-4">
         <GlassCard className="bg-gradient-to-br from-[#00f2ff]/10 to-transparent border-[#00f2ff]/20">
           <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.total_balance}</span>
-          <span className="text-2xl font-black text-[#00f2ff]">৳{profile?.balance?.toFixed(2) || '0.00'}</span>
+          <span className="text-2xl font-black text-[#00f2ff]">৳{profile.balance.toFixed(2)}</span>
           <div className="flex items-center gap-1 mt-3 text-[9px] text-emerald-500 font-black uppercase tracking-widest">
             <TrendingUp size={10} /> লাইভ আপডেট
           </div>
         </GlassCard>
         <GlassCard className="bg-gradient-to-br from-[#7b61ff]/10 to-transparent border-[#7b61ff]/20">
           <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black mb-1 block">{t.referrals}</span>
-          <span className="text-2xl font-black text-[#7b61ff]">{profile?.referral_count || 0}</span>
+          <span className="text-2xl font-black text-[#7b61ff]">{profile.referral_count}</span>
           <Link to="/profile" className="text-[9px] text-[#7b61ff] font-black mt-3 flex items-center gap-1 hover:text-white transition-colors uppercase tracking-widest">
             কোড শেয়ার করুন <ArrowRight size={10} />
           </Link>

@@ -29,10 +29,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .maybeSingle();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
 
-      // Fallback: If profile missing, create one manually if we have user session
+      // Fallback: If profile missing, create one manually
       if (!data && user) {
+        console.log('Profile missing, creating manually...');
         const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
         const { data: created, error: createError } = await supabase
           .from('profiles')
@@ -44,14 +48,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: user.email === 'rakibulislamrovin@gmail.com' ? 'admin' : 'user'
           })
           .select()
-          .single();
+          .maybeSingle();
         
-        if (!createError) data = created;
+        if (!createError && created) {
+          data = created;
+        } else {
+          console.error('Manual profile creation failed:', createError);
+        }
       }
 
       setProfile(data);
     } catch (err) {
-      console.error('Error fetching/creating profile:', err);
+      console.error('Critical Auth Context Error:', err);
     }
   };
 
@@ -98,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [user?.id]); // Re-run when user ID changes
+  }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();

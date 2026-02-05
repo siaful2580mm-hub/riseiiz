@@ -28,11 +28,15 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+-- Safety: DROP and CREATE Policies
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON profiles;
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Users can update own profile." ON profiles;
 CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can insert own profile." ON profiles;
+CREATE POLICY "Users can insert own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- TASKS
 CREATE TABLE IF NOT EXISTS tasks (
@@ -144,14 +148,15 @@ INSERT INTO system_settings (id, notice_text, notice_link, min_withdrawal, activ
 VALUES (1, 'Riseii Pro-তে স্বাগতম! নিয়মিত কাজ করে বড় পুরস্কার জিতুন।', 'https://t.me/riseiipro', 250, 30)
 ON CONFLICT (id) DO UPDATE SET notice_text = EXCLUDED.notice_text;
 
--- Sample tasks
+-- Sample tasks to ensure content exists
 INSERT INTO tasks (title, description, category, reward_amount, link, proof_type)
 VALUES 
 ('আমাদের ফেসবুক পেজ লাইক দিন', 'পেজ লাইক করে স্ক্রিনশট আপলোড করুন।', 'facebook', 5.00, 'https://facebook.com', 'image'),
-('ইউটিউব চ্যানেল সাবস্ক্রাইব', 'চ্যানেলটি সাবস্ক্রাইব করে স্ক্রিনশট দিন।', 'youtube', 10.00, 'https://youtube.com', 'image')
+('ইউটিউব চ্যানেল সাবস্ক্রাইব', 'চ্যানেলটি সাবস্ক্রাইব করে স্ক্রিনশট দিন।', 'youtube', 10.00, 'https://youtube.com', 'image'),
+('ইনস্টাগ্রাম ফলো করুন', 'আমাদের ইনস্টাগ্রাম প্রোফাইল ফলো করে আপনার ইউজারনেম দিন।', 'instagram', 5.00, 'https://instagram.com', 'text')
 ON CONFLICT DO NOTHING;
 
--- TRIGGER FUNCTION FOR NEW USERS
+-- TRIGGER FUNCTION FOR NEW USERS (IMPROVED)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
@@ -159,15 +164,18 @@ DECLARE
   new_code TEXT;
   is_unique BOOLEAN := false;
 BEGIN
+  -- Search for referrer
   IF (NEW.raw_user_meta_data->>'referral_id') IS NOT NULL AND (NEW.raw_user_meta_data->>'referral_id') <> '' THEN
     SELECT id INTO target_referrer_id FROM public.profiles WHERE referral_code = upper(NEW.raw_user_meta_data->>'referral_id') LIMIT 1;
   END IF;
 
+  -- Generate unique referral code
   WHILE NOT is_unique LOOP
     new_code := upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 8));
     SELECT NOT EXISTS (SELECT 1 FROM public.profiles WHERE referral_code = new_code) INTO is_unique;
   END LOOP;
 
+  -- Create Profile
   INSERT INTO public.profiles (id, email, full_name, role, referral_code, referred_by)
   VALUES (
     NEW.id, 
@@ -178,6 +186,7 @@ BEGIN
     target_referrer_id
   ) ON CONFLICT (id) DO NOTHING;
 
+  -- Update referrer count if valid
   IF target_referrer_id IS NOT NULL THEN
     UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = target_referrer_id;
   END IF;
