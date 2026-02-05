@@ -14,7 +14,7 @@ const Auth: React.FC = () => {
   const [referralId, setReferralId] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
+  
   useEffect(() => {
     // Capture referral code from URL if present
     const params = new URLSearchParams(window.location.search);
