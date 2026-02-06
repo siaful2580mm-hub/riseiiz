@@ -15,7 +15,7 @@ export const MIN_WITHDRAWAL = 250;
 export const REFERRAL_BONUS = 15;
 export const ACTIVATION_FEE = 30;
 export const MIN_REFERRALS_FOR_WITHDRAW = 3;
-export const DAILY_SIGNUP_LIMIT = 200;
+export const DAILY_SIGNUP_LIMIT = 250; // Updated from 200 to 250
 
 export const TRANSLATIONS = {
   bn: {
@@ -89,7 +89,7 @@ export const TRANSLATIONS = {
     address: "বর্তমান ঠিকানা",
     upload_photo: "আপনার ছবি আপলোড করুন",
     submit_info: "তথ্য জমা দিন",
-    signup_limit_reached: "দুঃখিত, আজকের সাইন আপের সীমা পূর্ণ হয়ে গেছে। দয়া করে আগামীকাল আবার চেষ্টা করুন।",
+    signup_limit_reached: "দুঃখিত, আজকের সাইন আপের সীমা (২৫০) পূর্ণ হয়ে গেছে। দয়া করে আগামীকাল আবার চেষ্টা করুন।",
     ref_history: "রেফারাল হিস্ট্রি",
     welcome_msg: "স্বাগতম! আমরা আপনাকে ৳১৫ বোনাস দিয়েছি।",
     no_ref_msg: "এখনও কাউকে রেফার করেননি।"

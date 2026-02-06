@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { ShieldCheck, Zap, CreditCard, Send, Loader2, Info, ArrowLeft, Clock } from 'lucide-react';
+import { ShieldCheck, Zap, CreditCard, Send, Loader2, Info, ArrowLeft, Clock, AlertTriangle } from 'lucide-react';
 import { ACTIVATION_FEE } from '../constants.tsx';
 
 const Activation: React.FC = () => {
@@ -109,34 +110,35 @@ const Activation: React.FC = () => {
         <h2 className="text-2xl font-black">{t.activation_title}</h2>
       </div>
 
-      <GlassCard className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/30">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 text-slate-950">
-            <Zap size={24} fill="currentColor" />
+      <GlassCard className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/40 relative overflow-hidden">
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-16 h-16 bg-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950">
+            <CreditCard size={32} />
           </div>
-          <div>
-            <h3 className="font-black text-white">{t.unlock_features}</h3>
-            <p className="text-xs text-slate-400">উপার্জিত টাকা উত্তোলনের জন্য আপনার অ্যাকাউন্ট সক্রিয় করুন।</p>
+          <div className="space-y-1">
+            <h3 className="font-black text-amber-400 text-lg uppercase tracking-tight">৳{fee} ডিপোজিট করতে হবে</h3>
+            <p className="text-xs text-slate-300 font-bold uppercase tracking-widest">অ্যাকাউন্ট ভেরিফাই এবং অ্যাক্টিভেশন ফি</p>
           </div>
         </div>
+        <Zap size={100} className="absolute -bottom-4 -right-4 text-amber-500/10" />
       </GlassCard>
 
-      <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 flex gap-3">
-        <Info className="text-blue-400 shrink-0" size={20} />
-        <div className="space-y-2">
-          <p className="text-xs text-blue-100/70 leading-relaxed">
-            নিচের যেকোনো একটি নম্বরে "Send Money" এর মাধ্যমে ৳{fee} পাঠিয়ে ট্রানজ্যাকশন আইডি (Transaction ID) এখানে দিন।
+      <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5 flex gap-4">
+        <Info className="text-blue-400 shrink-0" size={24} />
+        <div className="space-y-3">
+          <p className="text-xs text-blue-100 font-bold leading-relaxed">
+            নিচের যেকোনো একটি নম্বরে "Send Money" এর মাধ্যমে <span className="text-[#00f2ff]">৳{fee}</span> পাঠিয়ে ট্রানজ্যাকশন আইডি (Transaction ID) নিচে দিন।
           </p>
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">টাকা পাঠানোর নম্বরসমূহ:</p>
+          <div className="space-y-2">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">পেমেন্ট নম্বরসমূহ:</p>
             <div className="grid grid-cols-1 gap-2">
-              <div className="flex justify-between bg-slate-900/50 p-2 rounded-lg border border-white/5">
-                <span className="text-xs font-bold text-pink-400">বিকাশ (পার্সোনাল)</span>
-                <span className="text-xs font-mono">017XXXXXXXX</span>
+              <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-white/5">
+                <span className="text-xs font-black text-pink-500 uppercase">বিকাশ (Personal)</span>
+                <span className="text-sm font-mono font-bold text-white tracking-wider">017XXXXXXXX</span>
               </div>
-              <div className="flex justify-between bg-slate-900/50 p-2 rounded-lg border border-white/5">
-                <span className="text-xs font-bold text-orange-400">নগদ (পার্সোনাল)</span>
-                <span className="text-xs font-mono">018XXXXXXXX</span>
+              <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-white/5">
+                <span className="text-xs font-black text-orange-400 uppercase">নগদ (Personal)</span>
+                <span className="text-sm font-mono font-bold text-white tracking-wider">018XXXXXXXX</span>
               </div>
             </div>
           </div>
@@ -144,10 +146,10 @@ const Activation: React.FC = () => {
       </div>
 
       <form onSubmit={handleActivate} className="space-y-4">
-        <GlassCard className="space-y-4">
+        <GlassCard className="space-y-4 border-white/10">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <CreditCard size={12} /> পেমেন্ট পদ্ধতি নির্বাচন করুন
+              <CreditCard size={12} /> পেমেন্ট মেথড
             </label>
             <div className="grid grid-cols-3 gap-2">
               {['bkash', 'nagad', 'rocket'].map((m) => (
@@ -155,8 +157,8 @@ const Activation: React.FC = () => {
                   key={m}
                   type="button"
                   onClick={() => setMethod(m)}
-                  className={`py-2 text-[10px] font-black uppercase rounded-xl border transition-all ${
-                    method === m ? 'bg-emerald-500 border-emerald-500 text-slate-950' : 'bg-slate-900 border-white/10 text-slate-400'
+                  className={`py-3 text-[10px] font-black uppercase rounded-xl border transition-all ${
+                    method === m ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-slate-900 border-white/10 text-slate-500 hover:text-white'
                   }`}
                 >
                   {m === 'bkash' ? 'বিকাশ' : m === 'nagad' ? 'নগদ' : 'রকেট'}
@@ -167,23 +169,28 @@ const Activation: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <ShieldCheck size={12} /> ট্রানজ্যাকশন আইডি (Transaction ID)
+              <ShieldCheck size={12} /> Transaction ID (TrxID)
             </label>
             <input
               type="text"
               required
               value={trxId}
               onChange={(e) => setTrxId(e.target.value)}
-              placeholder="যেমন: 8J2K9L3M"
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:border-emerald-500 outline-none transition-all uppercase"
+              placeholder="যেমন: ABC123XYZ"
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-4 text-sm font-mono font-black tracking-widest focus:border-amber-500 outline-none transition-all uppercase"
             />
           </div>
         </GlassCard>
 
+        <div className="flex items-start gap-2 px-2">
+          <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-[9px] text-slate-500 font-bold uppercase leading-tight italic">ভুল TrxID দিলে অ্যাকাউন্ট চিরতরে ব্যান করা হতে পারে।</p>
+        </div>
+
         <button
           type="submit"
           disabled={loading || !trxId}
-          className="w-full py-4 bg-gradient-primary rounded-xl font-black text-sm text-slate-950 shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
+          className="w-full py-5 bg-gradient-primary rounded-2xl font-black text-sm text-slate-950 shadow-xl shadow-[#00f2ff]/20 flex items-center justify-center gap-2 active:scale-95 transition-all uppercase tracking-widest"
         >
           {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
           {t.submit_activation}

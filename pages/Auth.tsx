@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle, AlertTriangle } from 'lucide-react';
 import { TRANSLATIONS, DAILY_SIGNUP_LIMIT } from '../constants.tsx';
 
 const Auth: React.FC = () => {
@@ -14,10 +14,23 @@ const Auth: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const validateEmail = (email: string) => {
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return re.test(String(email).toLowerCase());
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
+
+    // 1. Basic Email Validation
+    if (!validateEmail(email)) {
+      setErrorMsg("দয়া করে একটি সঠিক ইমেইল অ্যাড্রেস ব্যবহার করুন। ফেক ইমেইল এলাউড নয়!");
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isSignUp) {
         // Daily limit check
@@ -39,13 +52,13 @@ const Auth: React.FC = () => {
           options: {
             data: { 
               full_name: fullName.trim(),
-              referred_by: null // Referral logic moved to post-auth
+              referred_by: null
             }
           }
         });
         
         if (error) throw error;
-        alert('অ্যাকাউন্ট তৈরি হয়েছে! দয়া করে ইমেইল ভেরিফাই করুন অথবা লগইন করুন।');
+        alert('অ্যাকাউন্ট তৈরি হয়েছে! দয়া করে ইমেইল ভেরিফাই করুন অথবা সরাসরি লগইন করুন।');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -68,12 +81,17 @@ const Auth: React.FC = () => {
           <h2 className="text-3xl font-black bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent uppercase tracking-tighter">
             {isSignUp ? t.auth_signup : t.auth_login}
           </h2>
+          {isSignUp && (
+             <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-2">
+               Daily Limit: {DAILY_SIGNUP_LIMIT} Users Only
+             </p>
+          )}
         </div>
 
         {errorMsg && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex gap-3 items-start">
-            <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
-            <p className="text-xs text-red-200 leading-relaxed">{errorMsg}</p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex gap-3 items-start animate-pulse">
+            <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
+            <p className="text-xs text-red-200 leading-relaxed font-bold">{errorMsg}</p>
           </div>
         )}
 
@@ -92,7 +110,7 @@ const Auth: React.FC = () => {
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t.email}</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all" placeholder="example@mail.com" />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all" placeholder="real-email@gmail.com" />
             </div>
           </div>
 
@@ -111,7 +129,7 @@ const Auth: React.FC = () => {
         </form>
 
         <div className="text-center pt-4">
-          <button onClick={() => setIsSignUp(!isSignUp)} className="text-[10px] font-black text-[#00f2ff] hover:text-[#7b61ff] transition-colors uppercase tracking-widest">
+          <button onClick={() => { setIsSignUp(!isSignUp); setErrorMsg(null); }} className="text-[10px] font-black text-[#00f2ff] hover:text-[#7b61ff] transition-colors uppercase tracking-widest">
             {isSignUp ? t.auth_has_account : t.auth_no_account}
           </button>
         </div>
