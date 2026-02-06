@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT UNIQUE NOT NULL,
     full_name TEXT,
     avatar_url TEXT,
-    balance NUMERIC DEFAULT 15, -- Default signup bonus updated to 15
+    balance NUMERIC DEFAULT 15,
     role TEXT DEFAULT 'user',
     referral_code TEXT UNIQUE,
     referred_by TEXT,
@@ -37,7 +37,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Tasks, Submissions, etc. (No change needed here)
+-- (Transactions table definition assuming it exists or needs creating)
+CREATE TABLE IF NOT EXISTS public.transactions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    type TEXT,
+    amount NUMERIC,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
 
 -- System Settings
 CREATE TABLE IF NOT EXISTS public.system_settings (
@@ -47,20 +55,60 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
     global_notice TEXT DEFAULT '<h1>Welcome</h1>',
     min_withdrawal NUMERIC DEFAULT 250,
     activation_fee NUMERIC DEFAULT 30,
-    referral_reward NUMERIC DEFAULT 15, -- Default reward updated to 15
+    referral_reward NUMERIC DEFAULT 15,
     support_url TEXT DEFAULT 'https://t.me/riseiipro',
     banner_ads_code TEXT DEFAULT '',
     is_maintenance BOOLEAN DEFAULT false,
     require_activation BOOLEAN DEFAULT true
 );
 
-INSERT INTO public.system_settings (id, referral_reward) VALUES (1, 15) 
-ON CONFLICT (id) DO UPDATE SET referral_reward = 15;
-
 -- ==========================================
--- 3. TRIGGER FOR NEW USERS
+-- 3. DATABASE FUNCTIONS (RPC)
 -- ==========================================
 
+-- Function to safely apply referral code (Bypasses RLS for balance update)
+CREATE OR REPLACE FUNCTION public.apply_referral(target_user_id UUID, ref_code TEXT, bonus_amount NUMERIC)
+RETURNS VOID AS $$
+DECLARE
+    referrer_id UUID;
+    target_email TEXT;
+BEGIN
+    -- Find referrer
+    SELECT id INTO referrer_id FROM public.profiles WHERE referral_code = ref_code;
+    
+    IF referrer_id IS NULL THEN
+        RAISE EXCEPTION 'Invalid referral code';
+    END IF;
+    
+    IF referrer_id = target_user_id THEN
+        RAISE EXCEPTION 'Cannot use own referral code';
+    END IF;
+
+    -- Get target user email for logging
+    SELECT email INTO target_email FROM public.profiles WHERE id = target_user_id;
+
+    -- Update Referree (Current User)
+    UPDATE public.profiles 
+    SET balance = balance + bonus_amount,
+        referred_by = ref_code
+    WHERE id = target_user_id;
+
+    -- Update Referrer
+    UPDATE public.profiles 
+    SET balance = balance + bonus_amount,
+        referral_count = referral_count + 1
+    WHERE id = referrer_id;
+
+    -- Log transactions
+    INSERT INTO public.transactions (user_id, type, amount, description)
+    VALUES 
+    (target_user_id, 'bonus', bonus_amount, 'Bonus for joining via ' || ref_code),
+    (referrer_id, 'bonus', bonus_amount, 'Referral bonus for inviting ' || target_email);
+
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -76,7 +124,7 @@ BEGIN
         new.email,
         COALESCE(new.raw_user_meta_data->>'full_name', 'Riseii Member'),
         new_ref_code,
-        15 -- Signup Bonus 15
+        15
     );
 
     RETURN new;
@@ -97,12 +145,10 @@ CREATE POLICY "Profiles are public" ON public.profiles FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
--- Policy for Admin Deletion (Specific owner email)
 DROP POLICY IF EXISTS "Admins can delete profiles" ON public.profiles;
 CREATE POLICY "Admins can delete profiles" ON public.profiles FOR DELETE USING (
   auth.jwt() ->> 'email' = 'rakibulislamrovin@gmail.com'
 );
 
--- (Rest of RLS policies for other tables remain same)
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;

@@ -39,55 +39,24 @@ const Profile: React.FC = () => {
 
     setIsApplying(true);
     try {
-      const { data: referrer, error: refError } = await supabase
-        .from('profiles')
-        .select('id, balance, referral_count')
-        .eq('referral_code', cleanCode)
-        .single();
-
-      if (refError || !referrer) throw new Error("Invalid referral code.");
-
       const { data: settings } = await supabase.from('system_settings').select('referral_reward').single();
       const bonus = settings?.referral_reward || 15;
 
-      // 1. Update Current User (Referree gets bonus)
-      const { error: userUpdateErr } = await supabase
-        .from('profiles')
-        .update({ 
-          referred_by: cleanCode,
-          balance: (profile.balance || 0) + bonus 
-        })
-        .eq('id', profile.id);
-      
-      if (userUpdateErr) throw userUpdateErr;
+      // Use RPC to bypass RLS and update both balances atomically
+      const { error: rpcError } = await supabase.rpc('apply_referral', {
+        target_user_id: profile.id,
+        ref_code: cleanCode,
+        bonus_amount: bonus
+      });
 
-      // 2. Update Referrer (Referrer gets bonus)
-      await supabase.from('profiles').update({
-        balance: referrer.balance + bonus,
-        referral_count: (referrer.referral_count || 0) + 1
-      }).eq('id', referrer.id);
-
-      // 3. Log Transactions
-      await supabase.from('transactions').insert([
-        {
-          user_id: referrer.id,
-          type: 'bonus',
-          amount: bonus,
-          description: `Referral bonus for inviting ${profile.email}`
-        },
-        {
-          user_id: profile.id,
-          type: 'bonus',
-          amount: bonus,
-          description: `Referral bonus for joining via ${cleanCode}`
-        }
-      ]);
+      if (rpcError) throw rpcError;
 
       alert(`Success! You and your friend both received ৳${bonus} bonus.`);
       setInputRefCode('');
       refreshProfile();
     } catch (err: any) {
-      alert(err.message || "Failed to apply referral code.");
+      console.error(err);
+      alert(err.message || "Invalid referral code or internal error.");
     } finally {
       setIsApplying(false);
     }

@@ -5,7 +5,7 @@ import GlassCard from '../components/GlassCard.tsx';
 import { 
   ShieldCheck, Users, Clock, CheckCircle, Trash2, Loader2, Plus, 
   RefreshCw, Wrench, X, Star, DollarSign, Wallet, FileText, Search, 
-  UserX, UserCheck, Zap, Globe, MessageCircle, AlertTriangle
+  UserX, UserCheck, Zap, Globe, MessageCircle, AlertTriangle, User, Calendar, MapPin, Phone, Briefcase
 } from 'lucide-react';
 import { Submission, Task, Profile, SystemSettings, Withdrawal, Activation } from '../types.ts';
 
@@ -55,7 +55,11 @@ const Admin: React.FC = () => {
     setLoading(true);
     try {
       if (activeTab === 'submissions') {
-        const { data } = await supabase.from('submissions').select('*, task:tasks(*), user:profiles(email, full_name)').order('created_at', { ascending: false });
+        // Only show pending submissions by default to clear clutter
+        const { data } = await supabase.from('submissions')
+          .select('*, task:tasks(*), user:profiles(email, full_name)')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
         setSubmissions(data || []);
       } else if (activeTab === 'withdrawals') {
         const { data } = await supabase.from('withdrawals').select('*, user:profiles(*)').order('created_at', { ascending: false });
@@ -82,6 +86,15 @@ const Admin: React.FC = () => {
       }
     } catch (err: any) { console.error(err); } 
     finally { setLoading(false); }
+  };
+
+  const handleUpdateKYC = async (userId: string, status: 'verified' | 'rejected') => {
+    try {
+      const { error } = await supabase.from('profiles').update({ kyc_status: status }).eq('id', userId);
+      if (error) throw error;
+      alert(`KYC Request ${status}!`);
+      fetchData();
+    } catch (e: any) { alert(e.message); }
   };
 
   const handleUpdateActivation = async (act: Activation, status: 'approved' | 'rejected') => {
@@ -210,7 +223,7 @@ const Admin: React.FC = () => {
         <>
           {activeTab === 'submissions' && (
             <div className="space-y-4">
-              {submissions.length === 0 ? <p className="text-center py-10 text-slate-500">No submissions found.</p> :
+              {submissions.length === 0 ? <p className="text-center py-10 text-slate-500">No pending submissions.</p> :
               submissions.map(sub => (
                 <GlassCard key={sub.id} className="space-y-4">
                   <div className="flex justify-between items-start">
@@ -237,6 +250,53 @@ const Admin: React.FC = () => {
                 </GlassCard>
               ))}
             </div>
+          )}
+
+          {activeTab === 'kyc' && (
+             <div className="space-y-4">
+                {kycRequests.length === 0 ? <p className="text-center py-10 text-slate-500">No pending KYC requests.</p> :
+                kycRequests.map(u => (
+                  <GlassCard key={u.id} className="space-y-4 border-white/10">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                       <div className="flex items-center gap-2">
+                          <User size={16} className="text-[#00f2ff]" />
+                          <p className="font-black text-sm uppercase">{u.kyc_full_name || u.full_name}</p>
+                       </div>
+                       <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{u.email}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                       <div className="space-y-1">
+                          <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1"><Calendar size={10} /> Age & DOB</p>
+                          <p className="font-bold text-slate-200">{u.kyc_age} Years • {u.kyc_dob}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1"><Phone size={10} /> Phone</p>
+                          <p className="font-bold text-slate-200">{u.kyc_phone}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1"><Briefcase size={10} /> Profession</p>
+                          <p className="font-bold text-slate-200">{u.kyc_profession}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1"><MapPin size={10} /> Address</p>
+                          <p className="font-bold text-slate-200 line-clamp-1">{u.kyc_address}</p>
+                       </div>
+                    </div>
+
+                    {u.kyc_document_url && (
+                       <div className="bg-black/40 rounded-xl overflow-hidden border border-white/5">
+                          <img src={u.kyc_document_url} alt="KYC Document" className="w-full max-h-48 object-contain" />
+                       </div>
+                    )}
+
+                    <div className="flex gap-2">
+                       <button onClick={() => handleUpdateKYC(u.id, 'verified')} className="flex-1 py-3 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-xl">APPROVE KYC</button>
+                       <button onClick={() => handleUpdateKYC(u.id, 'rejected')} className="flex-1 py-3 bg-red-500/20 text-red-400 font-black text-[10px] rounded-xl">REJECT</button>
+                    </div>
+                  </GlassCard>
+                ))}
+             </div>
           )}
 
           {activeTab === 'activations' && (
