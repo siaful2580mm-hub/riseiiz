@@ -14,6 +14,7 @@ import KYC from './pages/KYC.tsx';
 import Activation from './pages/Activation.tsx';
 import Notice from './pages/Notice.tsx';
 import ReferralHistory from './pages/ReferralHistory.tsx';
+import WithdrawalHistory from './pages/WithdrawalHistory.tsx';
 import { Loader2, AlertTriangle, ExternalLink, Zap, Terminal, RefreshCcw, Wrench } from 'lucide-react';
 
 const SetupRequired: React.FC = () => (
@@ -140,6 +141,7 @@ const AppContent: React.FC = () => {
           <Route path="/notice" element={<Notice />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/referral-history" element={<ReferralHistory />} />
+          <Route path="/withdrawal-history" element={<WithdrawalHistory />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

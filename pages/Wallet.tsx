@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../services/supabase.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
-import { Wallet as WalletIcon, ArrowUpRight, History, CreditCard, ShieldAlert, Loader2, AlertCircle, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Wallet as WalletIcon, ArrowUpRight, History, CreditCard, ShieldAlert, Loader2, AlertCircle, ShieldCheck, ChevronRight, Clock } from 'lucide-react';
 import { MIN_WITHDRAWAL, MIN_REFERRALS_FOR_WITHDRAW } from '../constants.tsx';
 import { Transaction, SystemSettings } from '../types.ts';
 
@@ -27,12 +28,11 @@ const Wallet: React.FC = () => {
     try {
       const [settingsRes, txRes] = await Promise.all([
         supabase.from('system_settings').select('*').single(),
-        supabase.from('transactions').select('*').eq('user_id', profile.id).order('created_at', { ascending: false })
+        supabase.from('transactions').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(10)
       ]);
       
       if (settingsRes.data) {
         setSettings(settingsRes.data);
-        // Check activation requirement if enabled
         if (settingsRes.data.require_activation && !profile.is_active) {
           navigate('/activation');
           return;
@@ -49,8 +49,6 @@ const Wallet: React.FC = () => {
   const isKycVerified = profile?.kyc_status === 'verified';
   const hasMinBalance = profile && profile.balance >= (settings?.min_withdrawal || MIN_WITHDRAWAL);
   const hasMinReferrals = profile && profile.referral_count >= MIN_REFERRALS_FOR_WITHDRAW;
-  
-  // Activation condition: if setting is true, must be active. If setting is false, skip.
   const isActivationRequirementMet = settings?.require_activation ? profile?.is_active : true;
   
   const canWithdraw = profile && isKycVerified && isActivationRequirementMet && hasMinBalance && hasMinReferrals;
@@ -62,11 +60,6 @@ const Wallet: React.FC = () => {
     const minAmt = settings?.min_withdrawal || MIN_WITHDRAWAL;
     const withdrawAmount = parseFloat(amount);
     
-    if (!isKycVerified) {
-      alert('You must complete KYC verification before withdrawal.');
-      return;
-    }
-
     if (isNaN(withdrawAmount) || withdrawAmount < minAmt) {
       alert(`Minimum withdrawal is ৳${minAmt}`);
       return;
@@ -118,7 +111,12 @@ const Wallet: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-black">{t.wallet}</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-black">{t.wallet}</h2>
+        <Link to="/withdrawal-history" className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-400 bg-blue-500/10 px-4 py-2 rounded-xl border border-blue-500/20 active:scale-95 transition-all">
+          <Clock size={14} /> {t.withdraw_history}
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 gap-4">
         {!isKycVerified && (
@@ -166,7 +164,7 @@ const Wallet: React.FC = () => {
       </GlassCard>
 
       <section className="space-y-4">
-        <h3 className="text-lg font-bold flex items-center gap-2">
+        <h3 className="text-lg font-bold flex items-center gap-2 px-1">
           <ArrowUpRight className="text-emerald-400" size={20} /> {t.payout_req}
         </h3>
         <GlassCard className={!canWithdraw ? 'opacity-50 pointer-events-none' : ''}>
@@ -205,7 +203,7 @@ const Wallet: React.FC = () => {
       </section>
 
       <section className="space-y-4">
-        <h3 className="text-lg font-bold flex items-center gap-2">
+        <h3 className="text-lg font-bold flex items-center gap-2 px-1">
           <History className="text-blue-400" size={20} /> {t.recent_tx}
         </h3>
         <div className="space-y-2">

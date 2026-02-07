@@ -15,7 +15,7 @@ export const MIN_WITHDRAWAL = 250;
 export const REFERRAL_BONUS = 15;
 export const ACTIVATION_FEE = 30;
 export const MIN_REFERRALS_FOR_WITHDRAW = 3;
-export const DAILY_SIGNUP_LIMIT = 250; // Updated from 200 to 250
+export const DAILY_SIGNUP_LIMIT = 250; 
 
 export const TRANSLATIONS = {
   bn: {
@@ -35,6 +35,7 @@ export const TRANSLATIONS = {
     method: "পদ্ধতি",
     wallet_num: "নম্বর (বিকাশ/নগদ)",
     recent_tx: "সাম্প্রতিক লেনদেন",
+    withdraw_history: "উত্তোলন হিস্ট্রি",
     support: "সাপোর্ট",
     kyc_status: "KYC অবস্থা",
     verify_now: "ভেরিফাই করুন",
