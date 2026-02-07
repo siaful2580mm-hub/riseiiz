@@ -42,7 +42,6 @@ const Profile: React.FC = () => {
       const { data: settings } = await supabase.from('system_settings').select('referral_reward').single();
       const bonus = settings?.referral_reward || 15;
 
-      // Use RPC to bypass RLS and update both balances atomically
       const { error: rpcError } = await supabase.rpc('apply_referral', {
         target_user_id: profile.id,
         ref_code: cleanCode,
@@ -166,7 +165,15 @@ const Profile: React.FC = () => {
           <button onClick={() => navigate('/wallet')} className="w-full glass-dark p-4 rounded-2xl flex items-center justify-between hover:bg-white/5 transition-all text-left">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400"><Zap size={20}/></div>
-              <span className="font-bold text-sm uppercase tracking-tight">Earning History</span>
+              <span className="font-bold text-sm uppercase tracking-tight">Wallet & Withdrawal</span>
+            </div>
+            <ChevronRight size={18} className="text-slate-600" />
+          </button>
+
+          <button onClick={() => navigate('/withdrawal-history')} className="w-full glass-dark p-4 rounded-2xl flex items-center justify-between hover:bg-white/5 transition-all text-left">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400"><Clock size={20}/></div>
+              <span className="font-bold text-sm uppercase tracking-tight">{t.withdraw_history}</span>
             </div>
             <ChevronRight size={18} className="text-slate-600" />
           </button>

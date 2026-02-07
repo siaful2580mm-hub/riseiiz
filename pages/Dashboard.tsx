@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
 import { 
   Megaphone, ArrowRight, CheckSquare, Loader2, Zap, 
-  Gift, Users, Wallet, CheckCircle, Trophy, TrendingUp, Download, Play, ShieldCheck, ChevronRight
+  Gift, Users, Wallet, CheckCircle, Trophy, TrendingUp, Download, Play, ShieldCheck, ChevronRight, Clock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SystemSettings, Task, Withdrawal } from '../types.ts';
@@ -58,13 +58,11 @@ const Dashboard: React.FC = () => {
 
   if (!profile) return null;
 
-  // Calculate earning progress toward min withdrawal
   const minWithdraw = settings?.min_withdrawal || 250;
   const progressPercent = Math.min((profile.balance / minWithdraw) * 100, 100);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-10">
-      {/* Global Trust Header */}
       <div className="grid grid-cols-2 gap-3">
         <div className="glass-dark border-emerald-500/20 p-4 rounded-[2rem] flex flex-col justify-between h-32 relative overflow-hidden group">
           <div className="z-10">
@@ -88,7 +86,6 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Notice Board */}
       {settings?.notice_text && (
         <Link to={settings.notice_link || '/notice'} className="block">
           <div className="bg-gradient-to-r from-[#00f2ff]/10 to-[#7b61ff]/10 border border-white/5 rounded-2xl p-4 flex items-center gap-4 group active:scale-[0.98] transition-all">
@@ -103,53 +100,53 @@ const Dashboard: React.FC = () => {
         </Link>
       )}
 
-      {/* User Balance & Progress */}
-      <div className="grid grid-cols-1 gap-4">
-        <GlassCard className="bg-gradient-to-br from-[#00f2ff]/10 via-transparent to-transparent border-[#00f2ff]/20">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <span className="text-[9px] text-slate-500 uppercase tracking-widest font-black">My Balance</span>
-              <h1 className="text-4xl font-black text-[#00f2ff] mt-1">৳{profile.balance.toFixed(2)}</h1>
-            </div>
-            <div className="text-right">
-               <span className="text-[8px] text-slate-500 uppercase tracking-widest font-black">Trust Score</span>
-               <div className="flex items-center gap-1 mt-1">
-                  <ShieldCheck size={14} className="text-emerald-400" />
-                  <span className="text-sm font-black text-white">98%</span>
-               </div>
-            </div>
+      <GlassCard className="bg-gradient-to-br from-[#00f2ff]/10 via-transparent to-transparent border-[#00f2ff]/20">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <span className="text-[9px] text-slate-500 uppercase tracking-widest font-black">My Balance</span>
+            <h1 className="text-4xl font-black text-[#00f2ff] mt-1">৳{profile.balance.toFixed(2)}</h1>
           </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-slate-500">
-              <span>Withdraw Progress</span>
-              <span>{Math.round(progressPercent)}%</span>
-            </div>
-            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-               <div className="h-full bg-gradient-primary shadow-[0_0_10px_#00f2ff]" style={{ width: `${progressPercent}%` }}></div>
-            </div>
-            <p className="text-[7px] text-slate-600 font-bold uppercase">Target: ৳{minWithdraw}</p>
+          <div className="text-right">
+             <span className="text-[8px] text-slate-500 uppercase tracking-widest font-black">Trust Score</span>
+             <div className="flex items-center gap-1 mt-1">
+                <ShieldCheck size={14} className="text-emerald-400" />
+                <span className="text-sm font-black text-white">98%</span>
+             </div>
           </div>
-        </GlassCard>
-      </div>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-slate-500">
+            <span>Withdraw Progress</span>
+            <span>{Math.round(progressPercent)}%</span>
+          </div>
+          <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+             <div className="h-full bg-gradient-primary shadow-[0_0_10px_#00f2ff]" style={{ width: `${progressPercent}%` }}></div>
+          </div>
+          <p className="text-[7px] text-slate-600 font-bold uppercase">Target: ৳{minWithdraw}</p>
+        </div>
+      </GlassCard>
 
-      {/* Quick Access Menu */}
+      {/* Quick Access Menu with Withdraw History */}
       <div className="flex gap-4 overflow-x-auto scrollbar-hide py-2 px-1">
-         <Link to="/referral-history" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
-            <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center mx-auto"><Users size={20} /></div>
-            <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Referral</p>
-         </Link>
          <Link to="/tasks" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
             <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto"><Zap size={20} /></div>
             <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Tasks</p>
          </Link>
          <Link to="/wallet" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
-            <div className="w-10 h-10 bg-[#7b61ff]/10 text-[#7b61ff] rounded-2xl flex items-center justify-center mx-auto"><Wallet size={20} /></div>
+            <div className="w-10 h-10 bg-[#00f2ff]/10 text-[#00f2ff] rounded-2xl flex items-center justify-center mx-auto"><Wallet size={20} /></div>
             <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Wallet</p>
+         </Link>
+         <Link to="/withdrawal-history" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
+            <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center mx-auto"><Clock size={20} /></div>
+            <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">History</p>
+         </Link>
+         <Link to="/referral-history" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
+            <div className="w-10 h-10 bg-[#7b61ff]/10 text-[#7b61ff] rounded-2xl flex items-center justify-center mx-auto"><Users size={20} /></div>
+            <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Referral</p>
          </Link>
       </div>
 
-      {/* Featured Missions */}
       <section className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-400">
