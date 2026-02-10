@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { Mail, Lock, Loader2, ArrowRight, User, AlertTriangle } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, User, AlertTriangle, MessageCircle } from 'lucide-react';
 import { TRANSLATIONS, DAILY_SIGNUP_LIMIT } from '../constants.tsx';
 
 const Auth: React.FC = () => {
@@ -13,7 +13,7 @@ const Auth: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Clear errors when switching modes
+  // Error clear when switching modes
   useEffect(() => {
     setErrorMsg(null);
   }, [isSignUp]);
@@ -28,14 +28,13 @@ const Auth: React.FC = () => {
     setErrorMsg(null);
 
     if (!validateEmail(email)) {
-      setErrorMsg("দয়া করে একটি সঠিক ইমেইল অ্যাড্রেস ব্যবহার করুন।");
+      setErrorMsg("দয়া করে একটি সঠিক ইমেইল অ্যাড্রেস ব্যবহার করুন। ফেক ইমেইল এলাউড নয়!");
       setLoading(false);
       return;
     }
 
     try {
       if (isSignUp) {
-        // 1. Check Daily Limit
         const today = new Date().toISOString().split('T')[0];
         const { count, error: countError } = await supabase
           .from('profiles')
@@ -47,41 +46,30 @@ const Auth: React.FC = () => {
           throw new Error(t.signup_limit_reached);
         }
 
-        // 2. Attempt Sign Up
-        const { error: signUpError } = await supabase.auth.signUp({ 
+        const { error } = await supabase.auth.signUp({ 
           email, 
           password,
-          options: {
-            data: { 
-              full_name: fullName.trim(),
-              referred_by: null
-            }
-          }
+          options: { data: { full_name: fullName.trim() } }
         });
         
-        if (signUpError) throw signUpError;
-        alert('অ্যাকাউন্ট তৈরি হয়েছে! ইমেইল চেক করুন।');
+        if (error) throw error;
+        alert('অ্যাকাউন্ট তৈরি হয়েছে! ইমেইল চেক করুন অথবা লগইন করুন।');
       } else {
-        // 3. Attempt Login
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) throw signInError;
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
       }
     } catch (error: any) {
-      console.error('Auth error:', error);
-      // Friendly error mapping
-      const message = error.message === 'Invalid login credentials' 
-        ? 'ভুল ইমেইল অথবা পাসওয়ার্ড।' 
-        : error.message;
-      setErrorMsg(message);
+      setErrorMsg(error.message === 'Invalid login credentials' ? 'ভুল ইমেইল অথবা পাসওয়ার্ড।' : error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#05060f]">
-      <GlassCard className="w-full max-w-md space-y-6 border-[#00f2ff]/10">
-        {/* Header Section */}
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#05060f] relative overflow-hidden">
+      
+      {/* Auth Card */}
+      <GlassCard className="w-full max-w-md space-y-6 border-[#00f2ff]/10 z-10">
         <div className="text-center">
           <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#00f2ff]/20">
              <ArrowRight className="text-[#05060f]" size={32} />
@@ -96,9 +84,8 @@ const Auth: React.FC = () => {
           )}
         </div>
 
-        {/* Error Alert */}
         {errorMsg && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex gap-3 items-start animate-in fade-in zoom-in duration-200">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex gap-3 items-start animate-pulse">
             <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
             <p className="text-xs text-red-200 leading-relaxed font-bold">{errorMsg}</p>
           </div>
@@ -143,6 +130,22 @@ const Auth: React.FC = () => {
           </button>
         </div>
       </GlassCard>
+
+      {/* Support Widget */}
+      <a 
+        href="https://t.me/securehx" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 group flex items-center gap-3"
+      >
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
+          <p className="text-[10px] font-black text-white uppercase tracking-tighter">Support Online</p>
+        </div>
+        <div className="w-14 h-14 bg-[#00f2ff] rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.4)] hover:scale-110 transition-transform active:scale-90">
+          <MessageCircle className="text-[#05060f]" size={28} />
+        </div>
+      </a>
+
     </div>
   );
 };
