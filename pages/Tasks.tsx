@@ -11,7 +11,7 @@ import {
 import { Task, TaskCategory, SubmissionStatus, SystemSettings } from '../types.ts';
 
 type SortOption = 'newest' | 'oldest' | 'reward-high' | 'reward-low';
-const IMGBB_API_KEY = '5e66705a72b74bc10253029076d35cca';
+const IMGBB_API_KEY = 'f5789c14135a479b4e3893c6b9ccf074';
 
 const Tasks: React.FC = () => {
   const { profile, t } = useAuth();
