@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
@@ -54,17 +53,17 @@ const MaintenanceMode: React.FC = () => (
         </p>
       </div>
       <button 
-  onClick={() => window.open('https://riseiizpro.vercel.app/', '_blank')} 
-  className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest"
->
-  <RefreshCcw size={14} /> আবার চেষ্টা করুন 
+        onClick={() => window.location.reload()}
+        className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest"
+      >
+        Check Status
       </button>
     </div>
   </div>
 );
 
 const AppContent: React.FC = () => {
-  const { user, profile, loasignOutignOut } = useAuth();
+  const { user, profile, loading, signOut, t } = useAuth();
   const [timedOut, setTimedOut] = useState(false);
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [checkingMaintenance, setCheckingMaintenance] = useState(true);
@@ -86,10 +85,12 @@ const AppContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let timer: anyif    if (loading) {
+    let timer: any;
+    if (loading) {
+      // Increase timeout to 15s to allow for slow profile fetch retries
       timer = setTimeout(() => {
         setTimedOut(true);
-      }, 8000);
+      }, 15000);
     } else {
       setTimedOut(false);
     }
@@ -104,12 +105,13 @@ const AppContent: React.FC = () => {
              <Zap size={48} className="text-[#00f2ff] fill-current" />
           </div>
           <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent">RISEII PRO</h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00f2ff]/60 animate-pulse">সংযোগ করা হচ্ছে...</p>
+            <h1 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent uppercase">RISEII PRO</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00f2ff]/60 animate-pulse">{t.connecting}</p>
           </div>
           {timedOut && (
             <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 text-center">
-              <button onClick={() => window.location.reload()} className="w-full py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><RefreshCcw size={14} /> আবার চেষ্টা করুন</button>
+              <p className="text-xs text-red-400 font-bold uppercase mb-2">সার্ভার সংযোগে দেরি হচ্ছে</p>
+              <button onClick={() => window.location.reload()} className="w-full py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><RefreshCcw size={14} /> {t.try_again}</button>
             </div>
           )}
         </div>

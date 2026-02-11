@@ -49,10 +49,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (!data) {
         addLog(`Profile NOT FOUND on attempt ${retryCount + 1}`);
-        // If not found, retry up to 2 times with a small delay
-        // Sometimes the trigger is slightly slower than the session update
-        if (retryCount < 2) {
-          await new Promise(r => setTimeout(r, 1500));
+        if (retryCount < 4) { // Increase retries for slow trigger updates
+          await new Promise(r => setTimeout(r, 2000));
           return fetchProfile(userId, retryCount + 1);
         }
       } else {
@@ -73,7 +71,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addLog(`Auth Status: ${u ? 'Logged In (' + u.email + ')' : 'Logged Out'}`);
     
     setUser(u);
-    setLoading(false);
     
     if (u) {
       const p = await fetchProfile(u.id);
@@ -81,6 +78,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       setProfile(null);
     }
+    
+    // Crucial: ensure loading is cleared even if profile fails
+    setLoading(false);
   };
 
   const refreshProfile = async () => {
@@ -93,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
+    // Start fetching session immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (mounted) handleSession(session);
     }).catch(err => {
