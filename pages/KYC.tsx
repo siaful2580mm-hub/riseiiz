@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
 import { ShieldCheck, FileText, Upload, Camera, CheckCircle2, Loader2, ChevronLeft, User as UserIcon, Calendar, MapPin, Phone, Briefcase } from 'lucide-react';
 
-const IMGBB_API_KEY = '5e66705a72b74bc10253029076d35cca';
+const IMGBB_API_KEY = 'f5789c14135a479b4e3893c6b9ccf074';
 
 const KYC: React.FC = () => {
   const { profile, refreshProfile, t } = useAuth();
