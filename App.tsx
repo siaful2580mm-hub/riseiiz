@@ -53,17 +53,17 @@ const MaintenanceMode: React.FC = () => (
         </p>
       </div>
       <button 
-        href="https://riseiizpro.vercel.app" target="_blank"
-        className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest"
-      >
-        Check Status
+  onClick={() => window.open('https://riseiizpro.vercel.app/', '_blank')} 
+  className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest"
+>
+  <RefreshCcw size={14} /> আবার চেষ্টা করুন 
       </button>
     </div>
   </div>
 );
 
 const AppContent: React.FC = () => {
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loasignOutignOut } = useAuth();
   const [timedOut, setTimedOut] = useState(false);
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [checkingMaintenance, setCheckingMaintenance] = useState(true);
@@ -85,8 +85,7 @@ const AppContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let timer: any;
-    if (loading) {
+    let timer: anyif    if (loading) {
       timer = setTimeout(() => {
         setTimedOut(true);
       }, 8000);
