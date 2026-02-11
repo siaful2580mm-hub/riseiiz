@@ -53,7 +53,7 @@ const MaintenanceMode: React.FC = () => (
         </p>
       </div>
       <button 
-        href="https://riseiizpro.vercel.app"
+        href="https://riseiizpro.vercel.app" target="_blank"
         className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest"
       >
         Check Status
