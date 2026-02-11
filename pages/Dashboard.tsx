@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
 import { 
   Megaphone, ArrowRight, CheckSquare, Loader2, Zap, 
-  Gift, Users, Wallet, CheckCircle, Trophy, TrendingUp, Download, Play, ShieldCheck, ChevronRight, Clock
+  Gift, Users, Wallet, CheckCircle, Trophy, TrendingUp, Download, Play, ShieldCheck, ChevronRight, Clock, Info, X, PlayCircle, HelpCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SystemSettings, Task, Withdrawal } from '../types.ts';
@@ -16,6 +16,7 @@ const Dashboard: React.FC = () => {
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState({ totalPaid: 45250, verifiedUsers: 1240 });
   const [loadingData, setLoadingData] = useState(true);
+  const [showDailyPopup, setShowDailyPopup] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,6 +35,13 @@ const Dashboard: React.FC = () => {
         const sum = (withdrawalSums?.reduce((acc, curr) => acc + curr.amount, 0) || 0) + 45250;
         
         setStats({ totalPaid: sum, verifiedUsers: (userCount || 0) + 1240 });
+
+        // Daily Popup Logic
+        const today = new Date().toDateString();
+        const lastSeen = localStorage.getItem('last_daily_popup_seen');
+        if (lastSeen !== today) {
+          setShowDailyPopup(true);
+        }
       } catch (err) {
         console.error("Dashboard Data Error:", err);
       } finally {
@@ -43,6 +51,11 @@ const Dashboard: React.FC = () => {
 
     if (user && profile) fetchData();
   }, [user, profile]);
+
+  const closePopup = () => {
+    localStorage.setItem('last_daily_popup_seen', new Date().toDateString());
+    setShowDailyPopup(false);
+  };
 
   if (profileLoading && !profile) {
     return (
@@ -63,6 +76,48 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-10">
+      {/* Daily How to Work Popup */}
+      {showDailyPopup && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative glass w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 border-[#00f2ff]/20 shadow-2xl shadow-[#00f2ff]/10">
+            <button 
+              onClick={closePopup}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="text-center space-y-4">
+              <div className="w-20 h-20 bg-gradient-primary rounded-3xl flex items-center justify-center mx-auto shadow-lg shadow-[#00f2ff]/20">
+                 <PlayCircle size={40} className="text-[#05060f] fill-current" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black uppercase tracking-tighter bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent">কিভাবে কাজ করবেন?</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  Riseii Pro তে কাজ শুরু করার আগে আমাদের টিউটোরিয়াল ভিডিওটি অবশ্যই দেখে নিন। এতে আপনি সহজে বেশি ইনকাম করার পদ্ধতি জানতে পারবেন।
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Link 
+                to="/notice" 
+                onClick={closePopup}
+                className="w-full py-4 bg-gradient-primary rounded-2xl font-black text-xs text-slate-950 uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-[#00f2ff]/20 hover:scale-105 active:scale-95 transition-all"
+              >
+                <Play size={18} /> টিউটোরিয়াল ভিডিও দেখুন
+              </Link>
+              <button 
+                onClick={closePopup}
+                className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-xs text-slate-400 uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                পরে দেখব
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div className="glass-dark border-emerald-500/20 p-4 rounded-[2rem] flex flex-col justify-between h-32 relative overflow-hidden group">
           <div className="z-10">
@@ -127,11 +182,15 @@ const Dashboard: React.FC = () => {
         </div>
       </GlassCard>
 
-      {/* Quick Access Menu with Withdraw History */}
+      {/* Quick Access Menu */}
       <div className="flex gap-4 overflow-x-auto scrollbar-hide py-2 px-1">
          <Link to="/tasks" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
             <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto"><Zap size={20} /></div>
             <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Tasks</p>
+         </Link>
+         <Link to="/notice" className="min-w-[110px] glass-dark border-[#00f2ff]/30 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all animate-pulse">
+            <div className="w-10 h-10 bg-gradient-primary text-slate-950 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-[#00f2ff]/20"><HelpCircle size={20} /></div>
+            <p className="text-[8px] font-black uppercase text-[#00f2ff] tracking-tighter">Tutorial</p>
          </Link>
          <Link to="/wallet" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
             <div className="w-10 h-10 bg-[#00f2ff]/10 text-[#00f2ff] rounded-2xl flex items-center justify-center mx-auto"><Wallet size={20} /></div>
@@ -140,10 +199,6 @@ const Dashboard: React.FC = () => {
          <Link to="/withdrawal-history" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
             <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center mx-auto"><Clock size={20} /></div>
             <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">History</p>
-         </Link>
-         <Link to="/referral-history" className="min-w-[110px] glass-dark border-white/5 p-4 rounded-3xl text-center space-y-2 active:scale-95 transition-all">
-            <div className="w-10 h-10 bg-[#7b61ff]/10 text-[#7b61ff] rounded-2xl flex items-center justify-center mx-auto"><Users size={20} /></div>
-            <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Referral</p>
          </Link>
       </div>
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { supabase } from '../services/supabase.ts';
 import GlassCard from '../components/GlassCard.tsx';
-import { Mail, Lock, Loader2, ArrowRight, User, AlertTriangle, MessageCircle } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, User, AlertCircle, AlertTriangle } from 'lucide-react';
 import { TRANSLATIONS, DAILY_SIGNUP_LIMIT } from '../constants.tsx';
 
 const Auth: React.FC = () => {
@@ -13,13 +14,9 @@ const Auth: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Error clear when switching modes
-  useEffect(() => {
-    setErrorMsg(null);
-  }, [isSignUp]);
-
   const validateEmail = (email: string) => {
-    return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.toLowerCase());
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return re.test(String(email).toLowerCase());
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -27,6 +24,7 @@ const Auth: React.FC = () => {
     setLoading(true);
     setErrorMsg(null);
 
+    // 1. Basic Email Validation
     if (!validateEmail(email)) {
       setErrorMsg("দয়া করে একটি সঠিক ইমেইল অ্যাড্রেস ব্যবহার করুন। ফেক ইমেইল এলাউড নয়!");
       setLoading(false);
@@ -35,30 +33,38 @@ const Auth: React.FC = () => {
 
     try {
       if (isSignUp) {
+        // Daily limit check
         const today = new Date().toISOString().split('T')[0];
-        const { count, error: countError } = await supabase
+        const { count } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true })
           .gte('created_at', today);
 
-        if (countError) throw countError;
         if (count !== null && count >= DAILY_SIGNUP_LIMIT) {
-          throw new Error(t.signup_limit_reached);
+          setErrorMsg(t.signup_limit_reached);
+          setLoading(false);
+          return;
         }
 
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
-          options: { data: { full_name: fullName.trim() } }
+          options: {
+            data: { 
+              full_name: fullName.trim(),
+              referred_by: null
+            }
+          }
         });
         
         if (error) throw error;
-        alert('অ্যাকাউন্ট তৈরি হয়েছে! ইমেইল চেক করুন অথবা লগইন করুন।');
+        alert('অ্যাকাউন্ট তৈরি হয়েছে! দয়া করে ইমেইল ভেরিফাই করুন অথবা সরাসরি লগইন করুন।');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
     } catch (error: any) {
+      console.error('Auth error:', error);
       setErrorMsg(error.message === 'Invalid login credentials' ? 'ভুল ইমেইল অথবা পাসওয়ার্ড।' : error.message);
     } finally {
       setLoading(false);
@@ -66,10 +72,8 @@ const Auth: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#05060f] relative overflow-hidden">
-      
-      {/* Auth Card */}
-      <GlassCard className="w-full max-w-md space-y-6 border-[#00f2ff]/10 z-10">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#05060f]">
+      <GlassCard className="w-full max-w-md space-y-6 border-[#00f2ff]/10">
         <div className="text-center">
           <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#00f2ff]/20">
              <ArrowRight className="text-[#05060f]" size={32} />
@@ -97,7 +101,7 @@ const Auth: React.FC = () => {
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t.full_name}</label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all text-white" placeholder="আপনার পুরো নাম" />
+                <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all" placeholder="আপনার পুরো নাম" />
               </div>
             </div>
           )}
@@ -106,7 +110,7 @@ const Auth: React.FC = () => {
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t.email}</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all text-white" placeholder="real-email@gmail.com" />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all" placeholder="real-email@gmail.com" />
             </div>
           </div>
 
@@ -114,7 +118,7 @@ const Auth: React.FC = () => {
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{t.password}</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all text-white" placeholder="••••••••" />
+              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-[#00f2ff]/50 outline-none transition-all" placeholder="••••••••" />
             </div>
           </div>
 
@@ -124,28 +128,12 @@ const Auth: React.FC = () => {
           </button>
         </form>
 
-        <div className="text-center pt-2">
-          <button onClick={() => setIsSignUp(!isSignUp)} className="text-[10px] font-black text-[#00f2ff] hover:text-[#7b61ff] transition-colors uppercase tracking-widest">
+        <div className="text-center pt-4">
+          <button onClick={() => { setIsSignUp(!isSignUp); setErrorMsg(null); }} className="text-[10px] font-black text-[#00f2ff] hover:text-[#7b61ff] transition-colors uppercase tracking-widest">
             {isSignUp ? t.auth_has_account : t.auth_no_account}
           </button>
         </div>
       </GlassCard>
-
-      {/* Support Widget */}
-      <a 
-        href="https://t.me/securehx" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 group flex items-center gap-3"
-      >
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
-          <p className="text-[10px] font-black text-white uppercase tracking-tighter">Support Online</p>
-        </div>
-        <div className="w-14 h-14 bg-[#00f2ff] rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.4)] hover:scale-110 transition-transform active:scale-90">
-          <MessageCircle className="text-[#05060f]" size={28} />
-        </div>
-      </a>
-
     </div>
   );
 };
