@@ -5,13 +5,13 @@ import { useAuth } from '../context/AuthContext.tsx';
 import GlassCard from '../components/GlassCard.tsx';
 import { CATEGORY_ICONS } from '../constants.tsx';
 import { 
-  ExternalLink, Send, CheckCircle2, Loader2, Copy, 
-  Camera, ListChecks, Clock, Zap, Upload, Facebook, Star, ChevronRight, FileDown 
+  ExternalLink, Send, Loader2, Copy, 
+  Camera, ListChecks, Zap, Upload, Star, FileDown 
 } from 'lucide-react';
 import { Task, TaskCategory, SubmissionStatus, SystemSettings } from '../types.ts';
 
 type SortOption = 'newest' | 'oldest' | 'reward-high' | 'reward-low';
-const IMGBB_API_KEY = 'f5789c14135a479b4e3893c6b9ccf074';
+const IMGBB_API_KEY = '5e66705a72b74bc10253029076d35cca';
 
 const Tasks: React.FC = () => {
   const { profile, t } = useAuth();
@@ -19,9 +19,12 @@ const Tasks: React.FC = () => {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [activeTab, setActiveTab] = useState<'available' | 'submitted'>('available');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  
+  // Proof states
   const [proof, setProof] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
+  
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userSubmissions, setUserSubmissions] = useState<Record<number, SubmissionStatus>>({});
@@ -29,12 +32,20 @@ const Tasks: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState<TaskCategory | 'all'>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
 
-  // Reset proof fields when modal is closed or task is changed
-  useEffect(() => {
+  // মডাল খুললে বা বন্ধ করলে ইমেজ ডাটা রিসেট করার জন্য এই ফাংশনটি ব্যবহার করা হচ্ছে
+  const handleOpenTask = (task: Task) => {
     setProof('');
     setProofFile(null);
     setProofPreview(null);
-  }, [selectedTask]);
+    setSelectedTask(task);
+  };
+
+  const handleCloseTask = () => {
+    setSelectedTask(null);
+    setProof('');
+    setProofFile(null);
+    setProofPreview(null);
+  };
 
   useEffect(() => {
     fetchData();
@@ -121,7 +132,7 @@ const Tasks: React.FC = () => {
       }
 
       setUserSubmissions(prev => ({ ...prev, [selectedTask.id]: 'pending' }));
-      setSelectedTask(null);
+      handleCloseTask();
       alert('আপনার কাজটি সফলভাবে জমা দেওয়া হয়েছে! এডমিন শীঘ্রই যাচাই করবে।');
       setActiveTab('submitted');
     } catch (err: any) {
@@ -154,7 +165,6 @@ const Tasks: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
-      console.error("Download failed:", err);
       window.open(url, '_blank');
     }
   };
@@ -173,14 +183,14 @@ const Tasks: React.FC = () => {
 
         <div className="flex items-center gap-2">
            <select value={filterCategory} onChange={e => setFilterCategory(e.target.value as any)} className="bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] font-black uppercase outline-none focus:border-[#00f2ff] transition-all flex-1">
-             <option value="all">{t.all_platforms}</option>
+             <option value="all">সব প্ল্যাটফর্ম</option>
              <option value="facebook">Facebook</option>
              <option value="youtube">YouTube</option>
              <option value="tiktok">TikTok</option>
            </select>
            <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-[10px] font-black uppercase outline-none focus:border-[#00f2ff] transition-all flex-1">
-             <option value="newest">{t.sort_by}{t.newest}</option>
-             <option value="reward-high">{t.sort_by}{t.high_reward}</option>
+             <option value="newest">নতুনগুলো আগে</option>
+             <option value="reward-high">বেশি ইনকাম আগে</option>
            </select>
         </div>
       </div>
@@ -212,10 +222,10 @@ const Tasks: React.FC = () => {
                   
                   <div className="mt-4 flex gap-2">
                     <button 
-                      onClick={() => setSelectedTask(task)}
+                      onClick={() => handleOpenTask(task)}
                       className="flex-1 py-2.5 bg-slate-900 border border-white/5 rounded-xl text-[10px] font-black uppercase hover:bg-white/5 transition-all flex items-center justify-center gap-2"
                     >
-                      {activeTab === 'submitted' ? 'বিস্তারিত দেখুন' : t.launch_task}
+                      {activeTab === 'submitted' ? 'বিস্তারিত দেখুন' : 'কাজটি শুরু করুন'}
                     </button>
                     {task.link && activeTab === 'available' && (
                        <button onClick={() => { window.open(task.link, '_blank'); }} className="p-2.5 bg-blue-600/10 text-blue-500 border border-blue-500/20 rounded-xl">
@@ -236,7 +246,7 @@ const Tasks: React.FC = () => {
             <div className="p-8 space-y-6 max-h-[90vh] overflow-y-auto scrollbar-hide">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-black text-white">{selectedTask.title}</h3>
-                <button onClick={() => setSelectedTask(null)} className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-full hover:bg-white/10 transition-colors">✕</button>
+                <button onClick={handleCloseTask} className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-full hover:bg-white/10 transition-colors">✕</button>
               </div>
 
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-3xl p-5 flex justify-between items-center">
@@ -290,7 +300,12 @@ const Tasks: React.FC = () => {
                          )}
                          <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                            const file = e.target.files?.[0];
-                           if(file) { setProofFile(file); const r = new FileReader(); r.onload = (e) => setProofPreview(e.target?.result as string); r.readAsDataURL(file); }
+                           if(file) { 
+                             setProofFile(file); 
+                             const r = new FileReader(); 
+                             r.onload = (e) => setProofPreview(e.target?.result as string); 
+                             r.readAsDataURL(file); 
+                           }
                          }} />
                        </label>
                     ) : (
@@ -299,7 +314,7 @@ const Tasks: React.FC = () => {
                   </div>
                   <button disabled={isSubmitting} className="w-full py-5 bg-gradient-primary rounded-2xl font-black text-sm text-slate-950 flex items-center justify-center gap-3 shadow-2xl shadow-[#00f2ff]/30 uppercase tracking-[0.2em] active:scale-95 transition-all disabled:opacity-50">
                     {isSubmitting ? <Loader2 className="animate-spin" /> : <Send size={20} />}
-                    {t.submit_now}
+                    সাবমিট করুন
                   </button>
                 </form>
               ) : (

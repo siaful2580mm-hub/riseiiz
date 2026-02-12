@@ -15,7 +15,7 @@ import Activation from './pages/Activation.tsx';
 import Notice from './pages/Notice.tsx';
 import ReferralHistory from './pages/ReferralHistory.tsx';
 import WithdrawalHistory from './pages/WithdrawalHistory.tsx';
-import { Loader2, AlertTriangle, ExternalLink, Zap, Terminal, RefreshCcw, Wrench } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Zap, Wrench } from 'lucide-react';
 
 const SetupRequired: React.FC = () => (
   <div className="min-h-screen bg-[#05060f] flex items-center justify-center p-6 text-white">
@@ -25,15 +25,9 @@ const SetupRequired: React.FC = () => (
       </div>
       <div className="space-y-2">
         <h2 className="text-2xl font-black uppercase tracking-tighter">সেটআপ প্রয়োজন</h2>
-        <p className="text-slate-400 text-sm">
-          দয়া করে আপনার Supabase credentials চেক করুন।
-        </p>
+        <p className="text-slate-400 text-sm">দয়া করে আপনার Supabase credentials চেক করুন।</p>
       </div>
-      <a 
-        href="https://supabase.com" 
-        target="_blank" 
-        className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-primary text-slate-950 rounded-2xl font-black text-sm uppercase tracking-widest"
-      >
+      <a href="https://supabase.com" target="_blank" className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-primary text-slate-950 rounded-2xl font-black text-sm uppercase tracking-widest">
         SUPABASE এ যান <ExternalLink size={16} />
       </a>
     </div>
@@ -48,23 +42,15 @@ const MaintenanceMode: React.FC = () => (
       </div>
       <div className="space-y-2">
         <h2 className="text-2xl font-black uppercase tracking-tighter">Maintenance Mode</h2>
-        <p className="text-slate-400 text-sm leading-relaxed">
-          The platform is currently undergoing scheduled maintenance. We will be back shortly!
-        </p>
+        <p className="text-slate-400 text-sm leading-relaxed">The platform is currently undergoing scheduled maintenance. We will be back shortly!</p>
       </div>
-      <button 
-        onClick={() => window.location.reload()}
-        className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest"
-      >
-        Check Status
-      </button>
+      <button onClick={() => window.location.reload()} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest">Check Status</button>
     </div>
   </div>
 );
 
 const AppContent: React.FC = () => {
-  const { user, profile, loading, signOut, t } = useAuth();
-  const [timedOut, setTimedOut] = useState(false);
+  const { user, profile, loading, t } = useAuth();
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [checkingMaintenance, setCheckingMaintenance] = useState(true);
 
@@ -72,9 +58,7 @@ const AppContent: React.FC = () => {
     const checkMaintenance = async () => {
       try {
         const { data } = await supabase.from('system_settings').select('is_maintenance').single();
-        if (data?.is_maintenance) {
-          setIsMaintenance(true);
-        }
+        if (data?.is_maintenance) setIsMaintenance(true);
       } catch (e) {
         console.error("Maintenance check error:", e);
       } finally {
@@ -84,43 +68,20 @@ const AppContent: React.FC = () => {
     checkMaintenance();
   }, []);
 
-  useEffect(() => {
-    let timer: any;
-    if (loading) {
-      // Increase timeout to 15s to allow for slow profile fetch retries
-      timer = setTimeout(() => {
-        setTimedOut(true);
-      }, 15000);
-    } else {
-      setTimedOut(false);
-    }
-    return () => clearTimeout(timer);
-  }, [loading]);
-
   if (loading || checkingMaintenance) {
     return (
       <div className="min-h-screen bg-[#05060f] flex flex-col items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-6 max-w-xs w-full">
-          <div className="w-24 h-24 bg-[#00f2ff]/10 rounded-[2rem] flex items-center justify-center animate-pulse border border-[#00f2ff]/20">
-             <Zap size={48} className="text-[#00f2ff] fill-current" />
+        <div className="flex flex-col items-center gap-6">
+          <div className="w-20 h-20 bg-[#00f2ff]/10 rounded-3xl flex items-center justify-center animate-pulse border border-[#00f2ff]/20">
+             <Zap size={40} className="text-[#00f2ff] fill-current" />
           </div>
-          <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-[#00f2ff] to-[#7b61ff] bg-clip-text text-transparent uppercase">RISEII PRO</h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00f2ff]/60 animate-pulse">{t.connecting}</p>
-          </div>
-          {timedOut && (
-            <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 text-center">
-              <p className="text-xs text-red-400 font-bold uppercase mb-2">সার্ভার সংযোগে দেরি হচ্ছে</p>
-              <button onClick={() => window.location.reload()} className="w-full py-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><RefreshCcw size={14} /> {t.try_again}</button>
-            </div>
-          )}
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00f2ff]/60 animate-pulse">{t.connecting}</p>
         </div>
       </div>
     );
   }
 
-  const isOwner = user?.email === 'rakibulislamrovin@gmail.com';
-  const isAdmin = profile?.role === 'admin' || isOwner;
+  const isAdmin = profile?.role === 'admin' || user?.email === 'rakibulislamrovin@gmail.com';
   
   if (isMaintenance && !isAdmin && user) {
     return <MaintenanceMode />;
@@ -152,10 +113,7 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  if (!isSupabaseConfigured) {
-    return <SetupRequired />;
-  }
-
+  if (!isSupabaseConfigured) return <SetupRequired />;
   return (
     <AuthProvider>
       <AppContent />

@@ -34,7 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string, retryCount = 0): Promise<any> => {
     setProfileLoading(true);
-    addLog(`Fetching DB record for: ${userId} (Attempt ${retryCount + 1})`);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -42,24 +41,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .maybeSingle();
       
-      if (error) {
-        addLog(`DB ERROR: ${error.message}`);
-        return null;
-      }
+      if (error) return null;
       
-      if (!data) {
-        addLog(`Profile NOT FOUND on attempt ${retryCount + 1}`);
-        if (retryCount < 4) { // Increase retries for slow trigger updates
-          await new Promise(r => setTimeout(r, 2000));
-          return fetchProfile(userId, retryCount + 1);
-        }
-      } else {
-        addLog(`Profile Loaded: ${data.email}`);
+      if (!data && retryCount < 3) {
+        await new Promise(r => setTimeout(r, 1500));
+        return fetchProfile(userId, retryCount + 1);
       }
       
       return data;
     } catch (err) {
-      addLog(`CRITICAL FETCH ERROR: ${err}`);
       return null;
     } finally {
       setProfileLoading(false);
@@ -68,19 +58,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleSession = async (session: any) => {
     const u = session?.user ?? null;
-    addLog(`Auth Status: ${u ? 'Logged In (' + u.email + ')' : 'Logged Out'}`);
-    
     setUser(u);
     
+    // মেইন লোডিং স্ক্রিন বন্ধ করে দেওয়া হচ্ছে যাতে অ্যাপ হ্যাং না করে
+    setLoading(false);
+    
     if (u) {
+      // প্রোফাইল ব্যাকগ্রাউন্ডে লোড হবে
       const p = await fetchProfile(u.id);
       setProfile(p);
     } else {
       setProfile(null);
     }
-    
-    // Crucial: ensure loading is cleared even if profile fails
-    setLoading(false);
   };
 
   const refreshProfile = async () => {
@@ -93,15 +82,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Start fetching session immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (mounted) handleSession(session);
-    }).catch(err => {
-      addLog(`Session Error: ${err.message}`);
+    }).catch(() => {
       if (mounted) setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (mounted) handleSession(session);
     });
 
