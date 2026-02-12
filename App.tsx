@@ -15,7 +15,7 @@ import Activation from './pages/Activation.tsx';
 import Notice from './pages/Notice.tsx';
 import ReferralHistory from './pages/ReferralHistory.tsx';
 import WithdrawalHistory from './pages/WithdrawalHistory.tsx';
-import { AlertTriangle, ExternalLink, Zap, Wrench } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Wrench } from 'lucide-react';
 
 const SetupRequired: React.FC = () => (
   <div className="min-h-screen bg-[#05060f] flex items-center justify-center p-6 text-white">
@@ -50,7 +50,7 @@ const MaintenanceMode: React.FC = () => (
 );
 
 const AppContent: React.FC = () => {
-  const { user, profile, loading, t } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [checkingMaintenance, setCheckingMaintenance] = useState(true);
 
@@ -68,25 +68,17 @@ const AppContent: React.FC = () => {
     checkMaintenance();
   }, []);
 
-  if (loading || checkingMaintenance) {
-    return (
-      <div className="min-h-screen bg-[#05060f] flex flex-col items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-6">
-          <div className="w-20 h-20 bg-[#00f2ff]/10 rounded-3xl flex items-center justify-center animate-pulse border border-[#00f2ff]/20">
-             <Zap size={40} className="text-[#00f2ff] fill-current" />
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00f2ff]/60 animate-pulse">{t.connecting}</p>
-        </div>
-      </div>
-    );
-  }
+  // যদি সেশন চেক করা শেষ না হয়, তাহলে কিছুই রেন্ডার করবে না (ব্ল্যাক স্ক্রিন) যাতে হ্যাং না দেখায়
+  if (loading) return null;
 
   const isAdmin = profile?.role === 'admin' || user?.email === 'rakibulislamrovin@gmail.com';
   
+  // মেইনটেন্যান্স মোড শুধুমাত্র নন-অ্যাডমিনদের জন্য
   if (isMaintenance && !isAdmin && user) {
     return <MaintenanceMode />;
   }
 
+  // ইউজার না থাকলে লগইন পেজ
   if (!user) {
     return <Auth />;
   }

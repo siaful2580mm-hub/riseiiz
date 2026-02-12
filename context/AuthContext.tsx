@@ -26,12 +26,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const t = TRANSLATIONS.bn;
 
-  const addLog = (msg: string) => {
-    const log = `${new Date().toLocaleTimeString()}: ${msg}`;
-    console.log(`[Auth] ${msg}`);
-    setDebugInfo(prev => [...prev.slice(-14), log]);
-  };
-
   const fetchProfile = async (userId: string, retryCount = 0): Promise<any> => {
     setProfileLoading(true);
     try {
@@ -43,8 +37,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) return null;
       
-      if (!data && retryCount < 3) {
-        await new Promise(r => setTimeout(r, 1500));
+      if (!data && retryCount < 2) {
+        await new Promise(r => setTimeout(r, 1000));
         return fetchProfile(userId, retryCount + 1);
       }
       
@@ -60,16 +54,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const u = session?.user ?? null;
     setUser(u);
     
-    // মেইন লোডিং স্ক্রিন বন্ধ করে দেওয়া হচ্ছে যাতে অ্যাপ হ্যাং না করে
-    setLoading(false);
-    
     if (u) {
-      // প্রোফাইল ব্যাকগ্রাউন্ডে লোড হবে
       const p = await fetchProfile(u.id);
       setProfile(p);
     } else {
       setProfile(null);
     }
+    
+    setLoading(false);
   };
 
   const refreshProfile = async () => {
@@ -81,6 +73,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+
+    // Safety timeout: ৫ সেকেন্ডের বেশি লোডিং স্ক্রিন থাকবে না
+    const safetyTimer = setTimeout(() => {
+      if (mounted && loading) {
+        setLoading(false);
+      }
+    }, 5000);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (mounted) handleSession(session);
@@ -94,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
